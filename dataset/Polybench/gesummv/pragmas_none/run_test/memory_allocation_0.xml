@@ -1,0 +1,11 @@
+<?xml version="1.0"?>
+<memory>
+  <memory_allocation base_address="1073741824">
+    <object scope="gesummv" name="internal_428889" is_internal="T"/>
+    <object scope="gesummv" name="internal_428924" is_internal="T"/>
+    <object scope="gesummv" name="internal_428987" is_internal="T"/>
+    <object scope="gesummv" name="internal_428996" is_internal="T"/>
+    <object scope="gesummv" name="internal_429006" is_internal="T"/>
+    <object scope="gesummv" name="internal_429015" is_internal="T"/>
+  </memory_allocation>
+</memory>

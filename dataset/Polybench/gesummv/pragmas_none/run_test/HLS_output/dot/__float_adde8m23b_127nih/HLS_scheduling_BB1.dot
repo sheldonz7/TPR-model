@@ -1,0 +1,17 @@
+digraph G {
+//Scheduling solution
+splines=ortho;
+//Control Step: 0
+CS0 [style=plaintext]
+{rank=same; CS0  ;}
+//Control Step: 1
+CS1 [style=plaintext]
+{rank=same; CS1  ;}
+//Control Step: 2
+CS2 [style=plaintext]
+{rank=same; CS2 1  ;}
+CS0 -> CS1;
+CS1 -> CS2;
+CS2 -> 1 [style=invis weight=1000 color=dimgrey];
+1[color=blue,shape=Msquare,label="EXIT - EXIT"];
+}

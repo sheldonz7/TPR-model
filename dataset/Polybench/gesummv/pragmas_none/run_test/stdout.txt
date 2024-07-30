@@ -1,0 +1,7 @@
+/usr/lib/llvm-13/lib/clang/13.0.1/include
+/usr/local/include
+/usr/include/x86_64-linux-gnu
+/usr/include
+
+Removing2: switch ((unsigned char)  _11066_[322]) <case 1unsigned char: , case 0unsigned char: , case 3unsigned char: , default: >
+Before2  : switch ((unsigned char)  _11066_[322]) <case 1unsigned char: , case 0unsigned char: , case 3unsigned char: , default: >
