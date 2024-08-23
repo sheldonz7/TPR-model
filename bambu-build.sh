@@ -25,7 +25,7 @@ make clean
 
 bambu atax.c --top-fname=atax --print-dot --compiler=I386_CLANG13 --debug 4 --verbosity 4 > stdout.txt 2> stderr.txt
 
-bambu ../atax.c --top-fname=atax --print-dot --compiler=I386_CLANG13 -O2 --debug 4 --verbosity 4 > stdout.txt 2> stderr.txt --device=xcu55c-2Lfsvh2892-VVD --disable-function-proxy 
+bambu ../atax.c --top-fname=atax --print-dot --compiler=I386_CLANG13 -O2 --debug 4 --verbosity 4 > stdout.txt 2> stderr.txt --device=xc7z020-1clg484-VVD --disable-function-proxy 
 
 
 # memory
