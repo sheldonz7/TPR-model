@@ -9,6 +9,13 @@ from pathlib import Path
 #############################  part1: generate HLS strategy  ###############################################
 
 
+# Bambu parameter
+# Device/part number
+xilinx_part_number = "xc7z020-1clg484-VVD"
+
+
+
+# generate HLS strategy
 print("Generating HLS strategy for all Polybench designs")
 
 def split_i(list, pos, m):
