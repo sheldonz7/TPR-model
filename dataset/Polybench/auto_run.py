@@ -13,6 +13,8 @@ from pathlib import Path
 # Device/part number
 xilinx_part_number = "xc7z020-1clg484-VVD"
 
+# memory
+channels-number = 16
 
 
 # generate HLS strategy
