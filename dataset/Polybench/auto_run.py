@@ -141,6 +141,7 @@ def run_routine(kernel_name, unroll_fac_loop_dic):
         iob = lp[0]
         lp1 = [lp[1], lp[2],  lp[3],  lp[4]]
         lp2 = [lp[5], lp[6],  lp[7],  lp[8]]
+        '''
         match kernel_name:
             case "atax":
                 prj_name = 'io{}_l1{}{}{}{}_l3{}{}{}{}'.format(lp[0], lp[1], lp[2], lp[3], lp[4], lp[5], lp[6], lp[7], lp[8])
@@ -160,6 +161,26 @@ def run_routine(kernel_name, unroll_fac_loop_dic):
                 prj_name = 'io{}_l2{}{}{}{}_l5{}{}{}{}_l7{}{}{}{}'.format(lp[0], lp[1], lp[2], lp[3], lp[4], lp[1], lp[2], lp[3], lp[4], lp[5], lp[6], lp[7], lp[8])
             case "syrk":
                 prj_name = 'io{}_l2{}{}{}{}_l4{}{}{}{}'.format(lp[0], lp[1], lp[2], lp[3], lp[4], lp[5], lp[6], lp[7], lp[8])
+        '''
+        match kernel_name:
+            case "atax":
+                prj_name = 'l1{}{}{}{}_l3{}{}{}{}'.format(lp[1], lp[2], lp[3], lp[4], lp[5], lp[6], lp[7], lp[8])
+            case "bicg":
+                prj_name = 'l1{}{}{}{}_l3{}{}{}{}'.format(lp[1], lp[2], lp[3], lp[4], lp[5], lp[6], lp[7], lp[8])
+            case "gemm":
+                prj_name = 'l2{}{}{}{}_l4{}{}{}{}'.format(lp[1], lp[2], lp[3], lp[4], lp[5], lp[6], lp[7], lp[8])
+            case "gesummv":
+                prj_name = 'l1{}{}{}{}_l3{}{}{}{}_l5{}{}'.format(lp[1], lp[2], lp[3], lp[4], lp[5], lp[6], lp[7], lp[8], lp[1], lp[2])
+            case "k2mm":
+                prj_name = 'l2{}{}{}{}_l5{}{}{}{}_l7{}{}{}{}'.format(lp[1], lp[2], lp[3], lp[4], lp[1], lp[2], lp[3], lp[4], lp[5], lp[6], lp[7], lp[8])
+            case "k3mm":
+                prj_name = 'l2{}{}{}{}_l5{}{}{}{}_l8{}{}{}{}'.format(lp[1], lp[2], lp[3], lp[4], lp[1], lp[2], lp[3], lp[4], lp[5], lp[6], lp[7], lp[8])
+            case "mvt":
+                prj_name = 'l1{}{}{}{}_l3{}{}{}{}'.format(lp[1], lp[2], lp[3], lp[4], lp[5], lp[6], lp[7], lp[8])
+            case "syr2k":
+                prj_name = 'l2{}{}{}{}_l5{}{}{}{}_l7{}{}{}{}'.format(lp[1], lp[2], lp[3], lp[4], lp[1], lp[2], lp[3], lp[4], lp[5], lp[6], lp[7], lp[8])
+            case "syrk":
+                prj_name = 'l2{}{}{}{}_l4{}{}{}{}'.format(lp[1], lp[2], lp[3], lp[4], lp[5], lp[6], lp[7], lp[8])
         #output a stragy file   
         ftotal.write('{}\n'.format(prj_name))
         anno['prj_name'] = prj_name
@@ -284,7 +305,7 @@ def  running_vivado():
         shell=True, check=True, executable='/bin/bash')
     '''
 
-#generating_HLS_strategy()
+generating_HLS_strategy()
 #running_bambu()
 #running_vivado()
 vivado_info.running_route()
