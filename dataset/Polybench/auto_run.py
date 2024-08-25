@@ -4,6 +4,7 @@ import sys
 import io
 import shutil
 from pathlib import Path
+import extract_vivado_info as vivado_info
 
 #dataset_path = "/ugra/wlxing/workspace/TPR-model/dataset"
 #############################  part1: generate HLS strategy  ###############################################
@@ -283,7 +284,7 @@ def  running_vivado():
         shell=True, check=True, executable='/bin/bash')
     '''
 
-
-generating_HLS_strategy()
+#generating_HLS_strategy()
 #running_bambu()
 #running_vivado()
+vivado_info.running_route()
