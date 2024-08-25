@@ -99,6 +99,7 @@ def extract_post_route_util(target_file):
 #####################################################################
 
 def running_route():
+    print("extracting vivado information beginning")
     path="./"
     if 'vivado_info' in os.listdir(path):
         pass
@@ -119,7 +120,6 @@ def running_route():
     for target in targets:
         target_file_1="./{}/hls/run/bambu_output/HLS_output/Synthesis/vivado_flow/post_route_power.rpt".format(target)
         target_line, target_data = extract_post_route_power(target_file_1)
-        print(target_data)
         #target data is saved in target_data variable
         post_route_power_file.write("{}{}\n".format(target, target_line.replace(f'\n', '')))
 
@@ -139,5 +139,6 @@ def running_route():
     post_route_power_file.close()
     post_route_timing_summary_file.close()
     post_route_util_file.close()
+    print("extracting vivado information ends")
 if __name__ == "__main__":
     running_route()
