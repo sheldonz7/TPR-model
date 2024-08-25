@@ -14,7 +14,10 @@ from pathlib import Path
 xilinx_part_number = "xc7z020-1clg484-VVD"
 
 # memory
-channels-number = 16
+channel_number = 16
+
+# clock
+clock_period = 10
 
 
 # generate HLS strategy
@@ -237,7 +240,7 @@ def running_bambu():
             subprocess.run("docker container start bambu-dev", shell=True)
             print("{} is running".format(path))
             docker_running_path = "/workspace/TPR-model/dataset/Polybench/{}/hls/run/bambu_output/".format(path)
-            subprocess.run("docker exec -w {} --user wlxing bambu-dev /opt/panda/bin/bambu ../{}.c --top-fname={} --print-dot --compiler=I386_CLANG13 -O2 --debug 4 --verbosity 4 > stdout.txt 2> stderr.txt --device=xcu55c-2Lfsvh2892-VVD --disable-function-proxy".format(docker_running_path, path, path), shell=True)
+            subprocess.run("docker exec -w {} --user wlxing bambu-dev /opt/panda/bin/bambu ../{}.c --top-fname={} --print-dot --compiler=I386_CLANG13 -O2 --debug 4 --verbosity 4 > stdout.txt 2> stderr.txt --device={} --channels-number={} --clock-period={} --disable-function-proxy".format(docker_running_path, path, path, xilinx_part_number, channel_number, clock_period), shell=True)
             
             print("################### {} bambu running finished #######################".format(path))
             
