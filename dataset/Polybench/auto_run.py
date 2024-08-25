@@ -308,4 +308,4 @@ def  running_vivado():
 generating_HLS_strategy()
 #running_bambu()
 #running_vivado()
-vivado_info.running_route()
+vivado_info.running_route(clock_period)
