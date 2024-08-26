@@ -83,20 +83,57 @@ def extract_post_route_util(target_file):
     #this is for extract CLB LUTs from pos_route_util file
     lines=list()
     pos = 0
+    logic_name_pos = 0 
+    logic_name_times=0
+    logic_name=str()
+    logic_name_pos1=0
+    logic_name_pos2=0
     with open(target_file) as f:
         lines=f.readlines()
     for line in lines:
+        '''
+        # find the pos of the table and 1. {} logic
         if line.find("CLB LUTs") != -1:
+            print(1233333333)
+            logic_name=lines[pos+2]
+            logic_name_pos1=pos+2 
+        
+        if logic_name in line:
+            logic_name_times=logic_name_times+1
+            if logic_name_times == 2:
+                logic_name_pos2=pos
+        CLB_LUTS_target_line=lines[logic_name_pos2+6]
+        line1=lines[logic_name_pos2+3]
+        line2=lines[logic_name_pos2+4]
+        line3=lines[logic_name_pos2+5]
+        '''
+        if line.find("Table") != -1:
+            logic_name=lines[pos+2]
+            logic_name_pos1=pos+2
+            #print(list(logic_name))
+            '''
             CLB_LUTS_target_line = line
             line1=lines[pos-3]
             line2=lines[pos-2]
             line3=lines[pos-1]
+            '''
+        if logic_name == line:
+            logic_name_times=logic_name_times+1
+            if logic_name_times == 2:
+                logic_name_pos2=pos
+        CLB_LUTS_target_line=lines[logic_name_pos2+6]
+        line1=lines[logic_name_pos2+3]
+        line2=lines[logic_name_pos2+4]
+        line3=lines[logic_name_pos2+5]
+
         if line.find("LUT as Logic") != -1:
             LUT_as_Logic_target_line = line
         if line.find("LUT as Memory") != -1:
             LUT_as_Memory_target_line = line
             break
         pos=pos+1
+        logic_name_pos = logic_name_pos + 1
+
     lut_data_pos=CLB_LUTS_target_line.find('|', 2)
     lut_data_beg=lut_data_pos+2
     pos1 = lut_data_beg
@@ -166,3 +203,4 @@ def running_route(clock_period):
     print("extracting vivado information ends")
 if __name__ == "__main__":
     running_route()
+
