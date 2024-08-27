@@ -38,7 +38,7 @@ def split_i(list, pos, m):
     if str1.find('\t') != -1:
         for i in range(blank_t):
             str2 = '\t'+str2
-    else:
+    if str1.find(' ') != -1:
         for i in range(blank_b):
             str2 = ' '+str2
     list.insert(pos+1, str2)
@@ -81,10 +81,11 @@ def gen(anno, kernel_name, prj_name):
                 if list[pos].find('\t') != -1:
                     for i in range(blank_t):
                         s = '\t'+s
-                else:
+                if list[pos].find(' ') != -1:
                     for i in range(blank_b):
                         s = ' '+s
                 list.insert(next_pos, s)
+                
                 
         pos = pos+1        
     #writing pragma into data_file
@@ -161,6 +162,7 @@ def run_routine(kernel_name, unroll_fac_loop_dic):
                 prj_name = 'io{}_l2{}{}{}{}_l5{}{}{}{}_l7{}{}{}{}'.format(lp[0], lp[1], lp[2], lp[3], lp[4], lp[1], lp[2], lp[3], lp[4], lp[5], lp[6], lp[7], lp[8])
             case "syrk":
                 prj_name = 'io{}_l2{}{}{}{}_l4{}{}{}{}'.format(lp[0], lp[1], lp[2], lp[3], lp[4], lp[5], lp[6], lp[7], lp[8])
+        
         '''
         match kernel_name:
             case "atax":
@@ -181,6 +183,7 @@ def run_routine(kernel_name, unroll_fac_loop_dic):
                 prj_name = 'l2{}{}{}{}_l5{}{}{}{}_l7{}{}{}{}'.format(lp[1], lp[2], lp[3], lp[4], lp[1], lp[2], lp[3], lp[4], lp[5], lp[6], lp[7], lp[8])
             case "syrk":
                 prj_name = 'l2{}{}{}{}_l4{}{}{}{}'.format(lp[1], lp[2], lp[3], lp[4], lp[5], lp[6], lp[7], lp[8])
+        
         #output a stragy file   
         ftotal.write('{}\n'.format(prj_name))
         anno['prj_name'] = prj_name
@@ -207,6 +210,7 @@ def run_routine(kernel_name, unroll_fac_loop_dic):
                     ftotal.write('set_directive_unroll -factor {} "{}/{}"\n'.format(lp2[index], kernel_name, lp))
                     anno[lp] = lp2[index]
         ftotal.write('\n')
+        print(anno)
         gen(anno, kernel_name, prj_name)
         shutil.copy('./{}/hls/src/{}.h'.format(kernel_name, kernel_name), './pragma_file/{}_{}/'.format(kernel_name, prj_name))
         total_cnt = total_cnt + 1
