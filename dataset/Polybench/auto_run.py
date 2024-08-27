@@ -142,7 +142,7 @@ def run_routine(kernel_name, unroll_fac_loop_dic):
         iob = lp[0]
         lp1 = [lp[1], lp[2],  lp[3],  lp[4]]
         lp2 = [lp[5], lp[6],  lp[7],  lp[8]]
-        '''
+        
         match kernel_name:
             case "atax":
                 prj_name = 'io{}_l1{}{}{}{}_l3{}{}{}{}'.format(lp[0], lp[1], lp[2], lp[3], lp[4], lp[5], lp[6], lp[7], lp[8])
@@ -183,7 +183,7 @@ def run_routine(kernel_name, unroll_fac_loop_dic):
                 prj_name = 'l2{}{}{}{}_l5{}{}{}{}_l7{}{}{}{}'.format(lp[1], lp[2], lp[3], lp[4], lp[1], lp[2], lp[3], lp[4], lp[5], lp[6], lp[7], lp[8])
             case "syrk":
                 prj_name = 'l2{}{}{}{}_l4{}{}{}{}'.format(lp[1], lp[2], lp[3], lp[4], lp[5], lp[6], lp[7], lp[8])
-        
+        '''
         #output a stragy file   
         ftotal.write('{}\n'.format(prj_name))
         anno['prj_name'] = prj_name
