@@ -2,8 +2,6 @@
 
 void bicg(DATA_TYPE A[N][N], DATA_TYPE p[N], DATA_TYPE r[N], DATA_TYPE s_out[N], DATA_TYPE q_out[N])
 {
-#pragma HLS interface mode=ap_fifo port=s_out
-#pragma HLS interface mode=ap_fifo port=q_out
     int i, j;
 
 	DATA_TYPE buff_A[N][N];
