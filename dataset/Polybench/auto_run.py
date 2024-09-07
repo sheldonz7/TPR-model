@@ -5,6 +5,10 @@ import io
 import shutil
 from pathlib import Path
 import extract_vivado_info as vivado_info
+import time
+from concurrent.futures import ProcessPoolExecutor
+from multiprocessing import Lock, Process
+import fcntl
 
 #dataset_path = "/ugra/wlxing/workspace/TPR-model/dataset"
 #############################  part1: generate HLS strategy  ###############################################
@@ -12,14 +16,28 @@ import extract_vivado_info as vivado_info
 
 # Bambu parameter
 # Device/part number
-xilinx_part_number = "xc7z020-1clg484-VVD"
+#xilinx_part_number = "xc7z020-1clg484-VVD"
+xilinx_part_number = "xcku060-3ffva1156-VVD"
 
 # memory
-channel_number = 16
+channel_number = 4
 
 # clock
 clock_period = 10
 
+start_anew = True
+
+dataset_path = "./raw"
+
+graph_path = "./raw/graphs"
+
+# path
+runtime_solution_path = "{}/runtime_solutions".format(dataset_path)
+pragma_file_path = "{}/pragma_file".format(dataset_path)
+
+
+
+project_parallel_run = 8
 
 # generate HLS strategy
 print("Generating HLS strategy for all Polybench designs")
@@ -276,6 +294,235 @@ def running_bambu():
             "docker run --rm --user sqzhou -w workspace/binding-gnn/PandA-bambu/example    bambu-option    ",    
             shell=True, check=True, executable='/bin/bash')
     '''
+def divide_list_into_groups(lst, n):
+    """Divide a list into groups of n elements."""
+    for i in range(0, len(lst), n):
+        yield lst[i:i + n]
+
+def run_bambu_with_coloring_solution():
+    # Bambu run status
+    f = open("{}/custom_coloring_bambu_run_status.csv".format(pragma_file_path), "w")
+    f.write("Design Point,Coloring solution,Bambu Success,error,time taken\n")
+    f.close()
+
+    # Vivado run status
+    f = open("{}/custom_coloring_vivado_run_status.csv".format(pragma_file_path), "w")
+    f.write("Design Point,Coloring solution,CP_latency,dynamic_pwr,lut,success,error,time taken\n")
+    f.close()
+
+    # read projects to run
+    for design_point_name in os.listdir(runtime_solution_path):
+        print("################# start running design point {} #####################".format(design_point_name))
+        print("################# divide coloring solutions into group of {} #####################".format(project_parallel_run))
+        coloring_solutions_list = os.listdir("{}/{}".format(runtime_solution_path, design_point_name))
+        
+
+        coloring_solution_groups = list(divide_list_into_groups(coloring_solutions_list[1:], project_parallel_run))
+        previous_solution_group = []
+
+        # make sure the graph directory for current design point is reset
+        if os.path.exists("{}/{}".format(graph_path, design_point_name)):
+            shutil.rmtree("{}/{}".format(graph_path, design_point_name))
+        os.makedirs("{}/{}".format(graph_path, design_point_name))
+
+        for coloring_solution_group in coloring_solution_groups:
+            print("----Running coloring solutions ", end="")
+            
+            for coloring_solution in coloring_solution_group:
+                print("{} ".format(coloring_solution), end="")
+            print("-------")
+
+            #f2 = open("{}/custom_coloring_bambu_run_status.csv".format(pragma_file_path), "a")
+        
+            bambu_procs = []
+            vivado_proc = []
+
+            lock = Lock()
+            # run all the coloring solutions in parallel
+            # with ProcessPoolExecutor(max_workers=project_parallel_run) as executor:
+            #     futures = [executor.submit(run_bambu_for_coloring_solution, coloring_solution, design_point_name, f, lock) for coloring_solution in coloring_solutions]
+            #     for future in futures:
+            #         future.result()  # Wait for all processes to complete
+
+            for coloring_solution in coloring_solution_group:
+                p = Process(target=run_bambu_for_coloring_solution, args=(coloring_solution, design_point_name, lock))
+                bambu_procs.append(p)
+          
+                p.start()
+
+            # run Vivado for previous coloring group
+            for coloring_solution in previous_solution_group:
+                p = Process(target=run_vivado_for_coloring_solution, args=(coloring_solution, design_point_name, lock))
+                vivado_proc.append(p)
+                p.start()
+
+
+            for p in bambu_procs + vivado_proc:
+                p.join()
+
+            previous_solution_group = coloring_solution_group
+
+        procs = []
+
+        # run Vivado for the last group
+        for coloring_solution in previous_solution_group:
+            p = Process(target=run_vivado_for_coloring_solution, args=(coloring_solution, design_point_name, lock))
+            procs.append(p)
+            p.start()
+        
+        for p in procs:
+            p.join()
+
+        
+
+        print("################# Successfully ran design point {} #####################".format(design_point_name))
+
+
+        # for coloring_solution in os.listdir("{}/{}".format(runtime_solution_path, design_point_name)):
+        #     if(coloring_solution == "coloring_solutions_info.csv"):
+        #         continue
+            
+
+
+
+
+
+def run_bambu_for_coloring_solution(coloring_solution, design_point_name, lock):
+    
+    
+    design_name = design_point_name.split("_")[0]
+    start = time.time()
+            
+    coloring_solution_name = coloring_solution[:-4]
+    coloring_solution_file_path = "{}/{}/{}".format(runtime_solution_path, design_point_name, coloring_solution)
+    coloring_index = coloring_solution_name.split("_")[-1]
+
+    print("################# start running Bambu for design point {} {} #####################".format(design_point_name, coloring_solution_name))
+
+    bambu_run_path = "{}/{}/{}".format(pragma_file_path, design_point_name, coloring_solution_name + "_bambu_run")
+    docker_run_path = "/workspace/TPR-model/dataset/Polybench/raw/pragma_file/{}/{}".format(design_point_name, coloring_solution_name + "_bambu_run")
+    
+
+    if os.path.exists(bambu_run_path):
+        shutil.rmtree(bambu_run_path)
+    os.mkdir(bambu_run_path)
+
+    # copy the coloring solution to the project folder
+    shutil.copy(coloring_solution_file_path, bambu_run_path + "/coloring_result.csv")
+    print("Coloring solution copied to the project folder")
+
+    # make sure the container is up
+    subprocess.run("docker container start bambu-option", shell=True)
+
+
+    result = subprocess.run("docker exec -w {} --user sqzhou bambu-option /opt/panda/bin/bambu ../{}.c --top-fname={} --print-dot --compiler=I386_CLANG13 -O2 --debug 4 --verbosity 4 > {}/stdout.txt 2> {}/stderr.txt --device={} --channels-number={} --clock-period={} --disable-function-proxy".format(docker_run_path, design_name, design_name, bambu_run_path, bambu_run_path, xilinx_part_number, channel_number, clock_period), shell=True, capture_output=True, text=True)
+    if result.returncode:
+        print("################### Fail to run Bambu for design point {} {} #######################".format(design_point_name, coloring_solution_name))
+        print("Error: ", result.stderr)
+        lock.acquire()
+        f = open("{}/custom_coloring_bambu_run_status.csv".format(pragma_file_path), "a")
+        f.write("{},{},{},{},{}\n".format(design_point_name, coloring_solution_name, "0", "Bambu exit with code {}".format(result.returncode),time.time() - start))
+        f.close()
+        lock.release()
+        return
+
+
+    # extract CDFG
+    #shutil.copy("{}/{}_CG_cdfg_partitions_only.dot".format(bambu_run_path,design_name), "{}/cg_{}_{}.dot".format(graph_path, design_point_name, coloring_solution_name))
+    shutil.copy("{}/{}_cdfg_bulk_graph.dot".format(bambu_run_path,design_name), "{}/{}/cdfg_{}.dot".format(graph_path, design_point_name, coloring_index))
+    
+    # also copy the coloring solution to the graph path
+    shutil.copy(coloring_solution_file_path, "{}/{}/cdfg_{}_coloring.csv".format(graph_path, design_point_name, coloring_index))
+
+
+
+
+    print("################### Successfully ran Bambu for design point {} {} #######################".format(design_point_name, coloring_solution_name))
+    print("Time taken: ", time.time() - start)
+    lock.acquire()
+    f = open("{}/custom_coloring_bambu_run_status.csv".format(pragma_file_path), "a")
+    f.write("{},{},{},{},{}\n".format(design_point_name, coloring_solution_name, "1", "N/A", time.time() - start))
+    f.close()
+    lock.release()
+
+
+            
+
+    # for each project and each of its solutions, copy that solution to the project folder and run Bambu
+    
+
+
+def run_vivado_for_coloring_solution(coloring_solution, design_point_name, lock):
+    design_name = design_point_name.split("_")[0]
+    coloring_solution_name = coloring_solution[:-4]
+
+    print("################# start running Vivado for design point {} {} #####################".format(design_point_name, coloring_solution_name))
+
+
+        
+    start = time.time()
+
+    coloring_solution_name = coloring_solution[:-4]
+    coloring_index = coloring_solution_name.split("_")[-1]
+
+    bambu_run_path = "{}/{}/{}".format(pragma_file_path, design_point_name, coloring_solution_name + "_bambu_run")
+    
+   
+    
+    
+    vivado_tcl_path = "{}/{}".format(bambu_run_path, "/HLS_output/Synthesis/vivado_flow/vivado.tcl")
+    if not os.path.exists(vivado_tcl_path):
+        print("################### Vivado tcl file does not exist for design point {} {} #######################".format(design_point_name, coloring_solution_name))
+        lock.acquire()
+        f = open("{}/custom_coloring_vivado_run_status.csv".format(pragma_file_path), "a")
+        f.write("{},{},{},{},{},{},{},{}\n".format(design_point_name, coloring_solution_name, "N/A", "N/A", "N/A","0", "Vivado tcl file does not exist", time.time() - start))
+        f.close()
+        lock.release()
+        return
+
+    
+    
+
+    result = subprocess.run("vivado -mode batch -nojournal -nolog -notrace -source HLS_output/Synthesis/vivado_flow/vivado.tcl", shell=True, cwd="{}".format(bambu_run_path), capture_output=True, text=True)
+    if result.returncode:
+        print("################### Fail to run vivado for design point {} {} #######################".format(design_point_name, coloring_solution_name))
+        print("Error: ", result.stderr)
+        
+        lock.acquire()
+        f = open("{}/custom_coloring_vivado_run_status.csv".format(pragma_file_path), "a")
+        f.write("{},{},{},{},{},{},{},{}\n".format(design_point_name, coloring_solution_name, "N/A", "N/A", "N/A","0", "Vivado exit with code {}".format(result.returncode), time.time() - start))
+        os.remove("{}/{}/cdfg_{}.dot".format(graph_path, design_point_name, coloring_solution_name))
+        os.remove("{}/{}/cdfg_{}".format(graph_path, design_point_name, coloring_solution))
+        f.close()
+        lock.release()
+        return
+    
+    
+    # extract the performance information
+    lock.acquire()
+    f = open("{}/custom_coloring_vivado_run_status.csv".format(pragma_file_path), "a")
+    f.write("{},{},".format(design_point_name, coloring_solution_name))
+    error = vivado_info.extract_perf(10, bambu_run_path, f)
+    if error:
+        f.write("{},{},{},{},{},{}\n".format( "N/A", "N/A", "N/A","0", "Fail to extract performance information", time.time() - start))
+        f.close()
+        lock.release()
+        return
+    
+
+    # copy perf measure to the graph path
+    shutil.copy("{}/perf_measure.csv".format(bambu_run_path), "{}/{}/cdfg_{}_perf_measure.csv".format(graph_path, design_point_name, coloring_index))
+
+    print("################### Successfully ran Vivado for design point {} {} #######################".format(design_point_name, coloring_solution_name))
+    print("Time taken: ", time.time() - start)
+    f.write(",{},{},{}\n".format("1", "N/A", time.time() - start))
+    f.close()
+    lock.release()
+
+    
+
+    
+
 
 
 
@@ -286,30 +533,7 @@ print("Generating Vivado script for all designs and solutions")
 
 
 
-######################################  part4: run Vivado on host   #################################################################
-def  running_vivado():
-    
-    print("##################### Running Vivado on host ########################")
-    target_folder="./"
-    targets=os.listdir(target_folder)
-    for target in targets:
-        if os.path.isdir("./{}".format(target)) and (target != "pragma_file"):
-            target_path="{}{}/hls/run/bambu_output/".format(target_folder, target)
-            print("{} is running".format(target))
-            subprocess.run("vivado -mode batch -nojournal -nolog -notrace -source HLS_output/Synthesis/vivado_flow/vivado.tcl", shell=True, cwd="{}".format(target_path))
-            print("{} has been finished".format(target))
-        else:
-            pass 
-    print("################################ vivado running of all targets have been finished ####################################")
-
-
-    '''
-    subprocess.run(
-        "vivado -mode batch -nojournal -nolog -notrace -source script_0.tcl",    
-        shell=True, check=True, executable='/bin/bash')
-    '''
-
-generating_HLS_strategy()
-#running_bambu()
+#generating_HLS_strategy()
+run_bambu_with_coloring_solution()
 #running_vivado()
-vivado_info.running_route(clock_period)
+#vivado_info.running_route(clock_period)
