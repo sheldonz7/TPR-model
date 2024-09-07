@@ -145,23 +145,24 @@ def extract_post_route_util(target_file):
     lut = CLB_LUTS_target_line[lut_data_beg:lut_data_end]
     return CLB_LUTS_target_line, LUT_as_Logic_target_line, LUT_as_Memory_target_line, line1, line2, line3, lut
 #####################################################################
-def add_to_perf_measure(target, clock_period, Slack_MET_data, dynamic_pwr, lut):
-    if 'sample' in os.listdir('./{}/hls/'.format(target)):
-        pass
-    else:
-        os.mkdir('./{}/hls/sample'.format(target))
-    perf_measure = open('./{}/hls/sample/perf_measure.csv'.format(target), 'w+')
+def add_to_perf_measure(clock_period, Slack_MET_data, dynamic_pwr, lut, prj_path, dest_csv_file):
+    # if 'sample' in os.listdir('./{}/hls/'.format(target)):
+    #     pass
+    # else:
+    #     os.mkdir('./{}/hls/sample'.format(target))
+    perf_measure = open('{}/perf_measure.csv'.format(prj_path), 'w+')
     cp_latency=clock_period - float(Slack_MET_data)
     l = perf_measure.readlines()
-    if 'cp_latency,dynamic_pwr,lut' in l:
-        perf_measure.write("{},{},{}\n".format(cp_latency, dynamic_pwr, lut))
-    else:
-        perf_measure.write("cp_latency,dynamic_pwr,lut\n{},{},{}\n".format(cp_latency, dynamic_pwr, lut))
-        #perf_measure.write("{},{},{}\n".format(cp_latency, dynamic_pwr, lut))
+ 
+    perf_measure.write("cp_latency,dynamic_pwr,lut\n{},{},{}\n".format(cp_latency, dynamic_pwr, lut))
+    dest_csv_file.write("{},{},{}".format(cp_latency, dynamic_pwr, lut))
+    #perf_measure.write("{},{},{}\n".format(cp_latency, dynamic_pwr, lut))
 
 #####################################################################
 
-def running_route(clock_period):
+def extract_perf(clock_period, project_path, dest_csv_file):
+
+
     print("extracting vivado information beginning")
     path="./"
     if 'vivado_info' in os.listdir(path):
@@ -169,38 +170,49 @@ def running_route(clock_period):
     else:
         os.mkdir('./vivado_info')
     targets=list()
-    post_route_timing_summary_file = open("./vivado_info/"+"p_r_timing_summary"+".txt", 'a+')
-    post_route_power_file = open('./vivado_info/'+'p_r_power'+'.txt', 'a+')
-    post_route_util_file = open('./vivado_info/'+'p_r_util'+'.txt', 'a+')
+    # post_route_timing_summary_file = open("./vivado_info/"+"p_r_timing_summary"+".txt", 'a+')
+    # post_route_power_file = open('./vivado_info/'+'p_r_power'+'.txt', 'a+')
+    # post_route_util_file = open('./vivado_info/'+'p_r_util'+'.txt', 'a+')
 
     n=0
     #for i in os.listdir(path):
         #if os.path.isdir('./dataset/Polybench/{}'.format(i)) and (i != 'pragma_file'):
         #    targets.append(i)
-    targets=['atax', 'bicg', 'gemm', 'gesummv', 'k2mm', 'k3mm', 'mvt', 'syr2k', 'syrk']
-    for target in targets:
-        target_file_1="./{}/hls/run/bambu_output/HLS_output/Synthesis/vivado_flow/post_route_power.rpt".format(target)
-        target_line, dynamic_pwr_data = extract_post_route_power(target_file_1)
-        #target data is saved in target_data variable
-        post_route_power_file.write("{}{}\n".format(target, target_line.replace(f'\n', '')))
+    # targets=['atax', 'bicg', 'gemm', 'gesummv', 'k2mm', 'k3mm', 'mvt', 'syr2k', 'syrk']
 
-        target_file_2="./{}/hls/run/bambu_output//HLS_output/Synthesis/vivado_flow/post_route_timing_summary.rpt".format(target)
-        target_line, target_data, Slack_MET_line, Slack_MET_data = extract_post_route_timing_summary(target_file_2)
-        #data path delay is saved in target_data
-        post_route_timing_summary_file.write("{}:\n{}{}".format(target, Slack_MET_line, target_line))
+    target_file_1="{}/HLS_output/Synthesis/vivado_flow/post_route_power.rpt".format(project_path)
+    if os.path.exists(target_file_1) == False:
+        print("post_route_power.rpt does not exist")
+        return 1
+    target_line, dynamic_pwr_data = extract_post_route_power(target_file_1)
+    #target data is saved in target_data variable
+    #post_route_power_file.write("{}{}\n".format(target, target_line.replace(f'\n', '')))
 
-        target_file_3="./{}/hls/run/bambu_output/HLS_output/Synthesis/vivado_flow/post_route_util.rpt".format(target)
-        CLB_line, LUT_Logic_line, LUT_Memory_line, line1, line2, line3, lut = extract_post_route_util(target_file_3)
-        file3=post_route_util_file.readlines()
-        if n == 0:
-            post_route_util_file.write("{}{}".format(line1, line2))
-            n=n+1
-        post_route_util_file.write("{}{}:\n{},\n{},\n{}\n".format(line3, target, CLB_line.replace(f'\n', ''), LUT_Logic_line.replace(f'\n', ''), LUT_Memory_line.replace(f'\n', '')))
-        add_to_perf_measure(target, clock_period, Slack_MET_data, dynamic_pwr_data, lut)
-    post_route_power_file.close()
-    post_route_timing_summary_file.close()
-    post_route_util_file.close()
+    target_file_2="{}/HLS_output/Synthesis/vivado_flow/post_route_timing_summary.rpt".format(project_path)
+    if os.path.exists(target_file_2) == False:
+        print("post_route_timing_summary.rpt does not exist")
+        return 1
+
+    target_line, target_data, Slack_MET_line, Slack_MET_data = extract_post_route_timing_summary(target_file_2)
+    #data path delay is saved in target_data
+    #post_route_timing_summary_file.write("{}:\n{}{}".format(target, Slack_MET_line, target_line))
+
+    target_file_3="{}/HLS_output/Synthesis/vivado_flow/post_route_util.rpt".format(project_path)
+    if os.path.exists(target_file_3) == False:
+        print("post_route_util.rpt does not exist")
+        return 1
+    
+    CLB_line, LUT_Logic_line, LUT_Memory_line, line1, line2, line3, lut = extract_post_route_util(target_file_3)
+    # file3=post_route_util_file.readlines()
+    # if n == 0:
+    #     post_route_util_file.write("{}{}".format(line1, line2))
+    #     n=n+1
+    #post_route_util_file.write("{}{}:\n{},\n{},\n{}\n".format(line3, target, CLB_line.replace(f'\n', ''), LUT_Logic_line.replace(f'\n', ''), LUT_Memory_line.replace(f'\n', '')))
+    add_to_perf_measure(clock_period, Slack_MET_data, dynamic_pwr_data, lut, project_path, dest_csv_file)
+    # post_route_power_file.close()
+    # post_route_timing_summary_file.close()
+    # post_route_util_file.close()
     print("extracting vivado information ends")
-if __name__ == "__main__":
-    running_route()
 
+
+    return 0
