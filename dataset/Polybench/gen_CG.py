@@ -251,7 +251,7 @@ def running_bambu(start_anew=True):
     
     # a csv file to keep track of CG generation
     f = open("{}/CG_generation_status.csv".format(dataset_path), "w")
-    f.write("Design, CG_generation_success, error\n")
+    f.write("Design,CG_generation_success,error\n")
 
     if os.path.exists(CG_path):
         shutil.rmtree(CG_path)
@@ -300,8 +300,12 @@ def running_bambu(start_anew=True):
             #docker_running_path = "/workspace/TPR-model/dataset/Polybench/{}/hls/run/bambu_output/".format(path)
             #subprocess.run("docker exec -w {} --user wlxing bambu-dev /opt/panda/bin/bambu ../{}.c --top-fname={} --print-dot --compiler=I386_CLANG13 -O2 --debug 4 --verbosity 4 > stdout.txt 2> stderr.txt --device={} --channels-number={} --clock-period={} --disable-function-proxy".format(docker_running_path, path, path, xilinx_part_number, channel_number, clock_period), shell=True)
             
-            result = subprocess.run("docker exec -w {} --user sqzhou bambu-option /opt/panda/bin/bambu ../{}.c --top-fname={} --print-dot --compiler=I386_CLANG13 -O2 --debug 4 --verbosity 4 > {}/stdout.txt 2> {}/stderr.txt --device={} --channels-number={} --clock-period={} --disable-function-proxy".format(docker_run_path, design_name, design_name, bambu_run_path, bambu_run_path, xilinx_part_number, channel_number, clock_period), shell=True)
-       
+            result = subprocess.run("docker exec -w {} --user sqzhou bambu-option /opt/panda/bin/bambu ../{}.c --top-fname={} --print-dot --compiler=I386_CLANG13 -O2 --debug 4 --verbosity 4 > {}/stdout.txt 2> {}/stderr.txt --device={} --channels-number={} --clock-period={} --disable-function-proxy".format(docker_run_path, design_name, design_name, bambu_run_path, bambu_run_path, xilinx_part_number, channel_number, clock_period), shell=True, capture_output=True, text=True)
+            if result.returncode:
+                print("################### Fail to run design point #######################".format(design_point_name))
+                print("Error: ", result.stderr)
+                f.write("{},{},{}\n".format(design_point_name, "0", "Bambu exit with return code " + result.returncode))
+                continue
 
             # extract CG, and resource contraints from 
             try:
@@ -310,12 +314,12 @@ def running_bambu(start_anew=True):
             except:
                 print("################### Fail to run design point #######################".format(design_point_name))
                 print("CG or resource contraints file not found!")
-                f.write("{}, {}\n".format(design_point_name, "0", "CG/RC file not found"))
+                f.write("{},{},{}\n".format(design_point_name, "0", "CG/RC file not found"))
                 continue
             end = time.time()
             print("################### Bambu run finished for design point #######################".format(design_point_name))
             print("Time taken for running Bambu: ", end - start)
-            f.write("{}, {}\n".format(design_point_name, "1", "N/A"))
+            f.write("{},{}\n".format(design_point_name, "1", "N/A"))
     f.close()
 
 if __name__ == "__main__":
