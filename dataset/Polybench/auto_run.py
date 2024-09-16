@@ -426,13 +426,16 @@ def run_bambu_for_coloring_solution(coloring_solution, design_point_name, lock):
         lock.release()
         return
 
-
+    # check if coloring solution path exists
+    if not os.path.exists("{}/{}/{}".format(graph_path, design_point_name, coloring_solution_name)):
+        os.makedirs("{}/{}/{}".format(graph_path, design_point_name, coloring_solution_name))
+    
     # extract CDFG
     #shutil.copy("{}/{}_CG_cdfg_partitions_only.dot".format(bambu_run_path,design_name), "{}/cg_{}_{}.dot".format(graph_path, design_point_name, coloring_solution_name))
-    shutil.copy("{}/{}_cdfg_bulk_graph.dot".format(bambu_run_path,design_name), "{}/{}/cdfg_{}.dot".format(graph_path, design_point_name, coloring_index))
+    shutil.copy("{}/{}_cdfg_bulk_graph.dot".format(bambu_run_path,design_name), "{}/{}/{}/cdfg_raw.dot".format(graph_path, design_point_name, coloring_solution_name))
     
     # also copy the coloring solution to the graph path
-    shutil.copy(coloring_solution_file_path, "{}/{}/cdfg_{}_coloring.csv".format(graph_path, design_point_name, coloring_index))
+    shutil.copy(coloring_solution_file_path, "{}/{}/{}/coloring.csv".format(graph_path, design_point_name, coloring_solution_name))
 
 
 
@@ -511,7 +514,7 @@ def run_vivado_for_coloring_solution(coloring_solution, design_point_name, lock)
     
 
     # copy perf measure to the graph path
-    shutil.copy("{}/perf_measure.csv".format(bambu_run_path), "{}/{}/cdfg_{}_perf_measure.csv".format(graph_path, design_point_name, coloring_index))
+    shutil.copy("{}/perf_measure.csv".format(bambu_run_path), "{}/{}/{}/perf_measure.csv".format(graph_path, design_point_name, coloring_solution_name))
 
     print("################### Successfully ran Vivado for design point {} {} #######################".format(design_point_name, coloring_solution_name))
     print("Time taken: ", time.time() - start)

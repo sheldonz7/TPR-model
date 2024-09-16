@@ -22,6 +22,7 @@ source ~/.bashrc
 conda install networkx
 pip install graphviz
 pip install pydot
+pip install scikit-learn
 conda install matplotlib
 
 # make sure pytorch version >=1.4.0
