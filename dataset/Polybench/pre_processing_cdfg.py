@@ -46,7 +46,7 @@ def expr_to_opcode(node_name):
     # check if node_name starts with '__'
     if node_name == "__float_mule8m23b_127nih":
         return "fmul"
-    if node_name == "__float_addes8m23b_127nih":
+    if node_name == "__float_adde8m23b_127nih":
         return "fadd"
     if node_name.startswith("gimple"):
         return node_name.split("_")[1]
@@ -130,11 +130,7 @@ def fan_in_out_compute(DG):
 def graph_node_feat_to_file(out_dir, CDFG):
     with open('{}/graph_node_feature.csv'.format(out_dir), 'w+', newline = '') as wfile:
         writer = csv.writer(wfile)
-        title_1 = ['nodeid', 'node_id', 'optype', 'opcode', 'latency', 'delay', 'act_ratio', 'hd_0', 'hd_1', 'hd_2', 'hd_sum', # 'hd_out', 'hd_in',
-            'hd_fan_in', 'hd_fan_out', 'merge_op_set', 'fan_in', 'fan_out']
-        title_2 = ['rtl_id', 'rtl_name', 'lut', 'dsp', 'bram', 'ff', 'mem_words', 'mem_bits', 'mem_banks', 'mem_wxbitsxbanks', 'opnd_num', 
-            'bw_out', 'bw_0', 'bw_1', 'bw_2', 'cop_set', 'line_num_set', 'latency_set']
-        title = title_1 + title_2
+        title = ['nodeid', 'node_id', 'optype', 'opcode', 'bitwidth', 'fan_in', 'fan_out', 'lut']
         writer.writerow(title)
         for nodeid, data in CDFG.nodes(data=True):
             wr_line = [nodeid]
@@ -231,7 +227,7 @@ def df_graph_construct(cdfg_dir):
     
     cdfg_attribute_filter(CDFG_raw, CDFG, "{}/coloring.csv".format(cdfg_dir))
     print("CDFG after attribute filtering")
-    # print_graph(CDFG)
+    print_graph(CDFG)
     # cdfg_compatibility_filter(CDFG, coloring_file)
     # print_graph(CDFG)
 
@@ -241,17 +237,9 @@ def df_graph_construct(cdfg_dir):
 
     #################
 
-    CDFG = nx.convert_node_labels_to_integers(CDFG)
+    #CDFG = nx.convert_node_labels_to_integers(CDFG)
 
     nx.nx_pydot.write_dot(CDFG, "{}/cdfg_filtered.dot".format(cdfg_dir))
-
-
-
-def op_extract(cdfg_file):
-    # cdfg_node_dict = cdfg_node_explore()
-    pass
-
-
 
 
 
@@ -297,8 +285,8 @@ if __name__ == "__main__":
     #     if not vivado_run_success:
     #         continue
         
-        # df_graph_construct("{}/{}/{}".format(graph_path, design_point_name, coloring_solution_name))
-        # feature_embed("{}/{}/{}".format(graph_path, design_point_name, coloring_solution_name))
+    #     df_graph_construct("{}/{}/{}".format(graph_path, design_point_name, coloring_solution_name))
+    #     feature_embed("{}/{}/{}".format(graph_path, design_point_name, coloring_solution_name))
 
-    df_graph_construct("{}/{}/{}".format(graph_path, "atax_io1_l1n1n1_l3n1n1", "coloring_0"))
-    feature_embed("{}/{}/{}".format(graph_path, "atax_io1_l1n1n1_l3n1n1", "coloring_0"))
+    df_graph_construct("{}/{}/{}".format(graph_path, "atax_io1_l1n1n1_l3n1n1", "coloring_1"))
+    feature_embed("{}/{}/{}".format(graph_path, "atax_io1_l1n1n1_l3n1n1", "coloring_1"))
