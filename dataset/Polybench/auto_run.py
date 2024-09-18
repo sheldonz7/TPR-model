@@ -428,15 +428,32 @@ def run_bambu_for_coloring_solution(coloring_solution, design_point_name, lock):
 
     # check if coloring solution path exists
     if not os.path.exists("{}/{}/{}".format(graph_path, design_point_name, coloring_solution_name)):
-        os.makedirs("{}/{}/{}".format(graph_path, design_point_name, coloring_solution_name))
+        os.mkdir("{}/{}/{}".format(graph_path, design_point_name, coloring_solution_name))
     
     # extract CDFG
     #shutil.copy("{}/{}_CG_cdfg_partitions_only.dot".format(bambu_run_path,design_name), "{}/cg_{}_{}.dot".format(graph_path, design_point_name, coloring_solution_name))
-    shutil.copy("{}/{}_cdfg_bulk_graph.dot".format(bambu_run_path,design_name), "{}/{}/{}/cdfg_raw.dot".format(graph_path, design_point_name, coloring_solution_name))
-    
-    # also copy the coloring solution to the graph path
-    shutil.copy(coloring_solution_file_path, "{}/{}/{}/coloring.csv".format(graph_path, design_point_name, coloring_solution_name))
+    if os.path.exists("{}/{}_cdfg_bulk_graph.dot".format(bambu_run_path,design_name)):
+       shutil.copy("{}/{}_cdfg_bulk_graph.dot".format(bambu_run_path,design_name), "{}/{}/{}/cdfg_raw.dot".format(graph_path, design_point_name, coloring_solution_name))
+    else:
+        print("################### Fail to extract CDFG for design point {} {} #######################".format(design_point_name, coloring_solution_name))
+        lock.acquire()
+        f = open("{}/custom_coloring_bambu_run_status.csv".format(pragma_file_path), "a")
+        f.write("{},{},{},{},{}\n".format(design_point_name, coloring_solution_name, "0", "Fail to extract CDFG", time.time() - start))
+        f.close()
+        lock.release()
+        return
 
+    if os.path.exists(coloring_solution_file_path):
+        # also copy the coloring solution to the graph path
+        shutil.copy(coloring_solution_file_path, "{}/{}/{}/coloring.csv".format(graph_path, design_point_name, coloring_solution_name))
+    else:
+        print("################### Fail to find coloring solution for design point {} {} #######################".format(design_point_name, coloring_solution_name))
+        lock.acquire()
+        f = open("{}/custom_coloring_bambu_run_status.csv".format(pragma_file_path), "a")
+        f.write("{},{},{},{},{}\n".format(design_point_name, coloring_solution_name, "0", "Fail to find coloring solution", time.time() - start))
+        f.close()
+        lock.release()
+        return
 
 
 
@@ -507,12 +524,14 @@ def run_vivado_for_coloring_solution(coloring_solution, design_point_name, lock)
     f.write("{},{},".format(design_point_name, coloring_solution_name))
     error = vivado_info.extract_perf(10, bambu_run_path, f)
     if error:
-        f.write("{},{},{},{},{},{}\n".format( "N/A", "N/A", "N/A","0", "Fail to extract performance information", time.time() - start))
+        if error == 1:
+            f.write("{},{},{},{},{},{}\n".format( "N/A", "N/A", "N/A","0", "Fail to extract performance information", time.time() - start))
+        elif error == 2:
+            f.write("{},{},{},{},{},{}\n".format( "N/A", "N/A", "N/A","0", "Slack not met", time.time() - start))
         f.close()
         lock.release()
         return
-    
-
+  
     # copy perf measure to the graph path
     shutil.copy("{}/perf_measure.csv".format(bambu_run_path), "{}/{}/{}/perf_measure.csv".format(graph_path, design_point_name, coloring_solution_name))
 
@@ -537,6 +556,11 @@ print("Generating Vivado script for all designs and solutions")
 
 
 #generating_HLS_strategy()
+
+#lock = Lock()
 run_bambu_with_coloring_solution()
+#run_vivado_for_coloring_solution("coloring_52.csv", "bicg_io1_l1n1n1_l3n1n1", lock)
+
+
 #running_vivado()
 #vivado_info.running_route(clock_period)
