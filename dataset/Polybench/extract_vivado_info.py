@@ -35,13 +35,19 @@ def extract_post_route_power(target_file):
 
 def extract_post_route_timing_summary(target_file):
     #this is for extracting data path delay from post_route_timing_summary file
+    print("extracting post route timing summary")
     lines=list()
+    slack_met = True
     with open(target_file) as f:
         lines=f.readlines()
     
     for line in lines:
         if line.find("Slack (MET)") != -1:
-            Slack_MET_line = line
+            Slack_line = line
+        if line.find("Slack (VIOLATED)") != -1:
+            Slack_line = line
+            slack_met = False
+            print("slack violated")
         if line.find("Data Path Delay:") != -1:
             target_line_max=line
             break
@@ -63,19 +69,23 @@ def extract_post_route_timing_summary(target_file):
     target_data_max=target_line_max[locate_beg_max:locate_end_max+1]
     digit_pos=0
     digit_pos_beg=0
-    for digit in Slack_MET_line:
-        if digit.isdigit() and (digit_pos_beg == 0):
-            digit_pos_beg=digit_pos
-        if digit_pos_beg != 0:
-            if digit.isdigit() == False:
-                if digit == '.':
-                    pass
-                else:
-                    digit_pos_end = digit_pos
-                    break
+    for digit in Slack_line:
+        print("digit: ", digit)
+        if not slack_met:
+            if digit == "-" and (digit_pos_beg == 0):
+                digit_pos_beg=digit_pos
+        else:    
+            if digit.isdigit() and (digit_pos_beg == 0):
+                digit_pos_beg=digit_pos
+        
+
+        if digit_pos_beg != 0 and digit.isdigit() == False and digit != '-' and digit != '.':   
+            digit_pos_end = digit_pos
+            break
         digit_pos=digit_pos+1
-    Slack_MET_data = Slack_MET_line[digit_pos_beg:digit_pos_end]
-    return target_line_max, target_data_max, Slack_MET_line, Slack_MET_data
+    Slack_data = Slack_line[digit_pos_beg:digit_pos_end]
+    print("Slack data: ", Slack_data)
+    return target_line_max, target_data_max, Slack_line, Slack_data
 
 
 ###################################################################
@@ -145,13 +155,13 @@ def extract_post_route_util(target_file):
     lut = CLB_LUTS_target_line[lut_data_beg:lut_data_end]
     return CLB_LUTS_target_line, LUT_as_Logic_target_line, LUT_as_Memory_target_line, line1, line2, line3, lut
 #####################################################################
-def add_to_perf_measure(clock_period, Slack_MET_data, dynamic_pwr, lut, prj_path, dest_csv_file):
+def add_to_perf_measure(clock_period, Slack_data, dynamic_pwr, lut, prj_path, dest_csv_file):
     # if 'sample' in os.listdir('./{}/hls/'.format(target)):
     #     pass
     # else:
     #     os.mkdir('./{}/hls/sample'.format(target))
     perf_measure = open('{}/perf_measure.csv'.format(prj_path), 'w+')
-    cp_latency=clock_period - float(Slack_MET_data)
+    cp_latency=clock_period - float(Slack_data)
     l = perf_measure.readlines()
  
     perf_measure.write("cp_latency,dynamic_pwr,lut\n{},{},{}\n".format(cp_latency, dynamic_pwr, lut))
@@ -193,7 +203,11 @@ def extract_perf(clock_period, project_path, dest_csv_file):
         print("post_route_timing_summary.rpt does not exist")
         return 1
 
-    target_line, target_data, Slack_MET_line, Slack_MET_data = extract_post_route_timing_summary(target_file_2)
+    target_line, target_data, Slack_MET_line, Slack_data = extract_post_route_timing_summary(target_file_2)
+    print("get slack data: ", Slack_data)
+    if float(Slack_data) < 0.0:
+        print("Slack is negative, skipping this project")
+        return 2
     #data path delay is saved in target_data
     #post_route_timing_summary_file.write("{}:\n{}{}".format(target, Slack_MET_line, target_line))
 
@@ -208,7 +222,7 @@ def extract_perf(clock_period, project_path, dest_csv_file):
     #     post_route_util_file.write("{}{}".format(line1, line2))
     #     n=n+1
     #post_route_util_file.write("{}{}:\n{},\n{},\n{}\n".format(line3, target, CLB_line.replace(f'\n', ''), LUT_Logic_line.replace(f'\n', ''), LUT_Memory_line.replace(f'\n', '')))
-    add_to_perf_measure(clock_period, Slack_MET_data, dynamic_pwr_data, lut, project_path, dest_csv_file)
+    add_to_perf_measure(clock_period, Slack_data, dynamic_pwr_data, lut, project_path, dest_csv_file)
     # post_route_power_file.close()
     # post_route_timing_summary_file.close()
     # post_route_util_file.close()
