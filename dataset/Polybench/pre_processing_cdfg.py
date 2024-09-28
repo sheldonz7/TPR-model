@@ -89,9 +89,9 @@ def cdfg_attribute_filter(CDFG_raw, CDFG, coloring_file):
     # Add filtered node attributes to the new graph
     for node, data in CDFG_raw.nodes(data=True):
         opcode = expr_to_opcode(data.get("opcode", None))
-        print("node: ", node)
-        print("raw opcode: ", data.get("opcode", None))
-        print("get opcode: ", opcode)
+        #print("node: ", node)
+        #print("raw opcode: ", data.get("opcode", None))
+        #print("get opcode: ", opcode)
         optype = opcode_get_type(opcode)
         bitwidth = data.get("bitwidth", None)
         lut = data.get("resource_area", None)
@@ -103,21 +103,28 @@ def cdfg_attribute_filter(CDFG_raw, CDFG, coloring_file):
     first_column = coloring_solution.iloc[:, 0]
     third_column = coloring_solution.iloc[:, 2]
     
-    # construct a dictionary to store first column and third column map
+    # construct a dictionary to store first column and third column map, with value converted to int
     node_color_map = dict(zip(first_column, third_column))
-
-    print("node and color map: ", node_color_map)
+    
+    # print(type(node_color_map))
+    # print("node and color map: ", node_color_map)
     
     for u,v,data in CDFG_raw.edges(data=True):
         edge_type=data.get("edge_type", None)
+        # print("u type:", type(u))
+        # print("edge_type:", edge_type)
         # check compatibility
-        if edge_type == '2' and node_color_map.get(u, None) != node_color_map.get(v, None):
+        if edge_type == '2':
+            # print("src node {} color: {}".format(u, node_color_map.get(u, None)))
+            # print("dst node {} color: {}".format(v, node_color_map.get(v, None))) 
+            if node_color_map.get(int(u), None) != node_color_map.get(int(v), None):
+            
                 print("compatibility not detected, not adding the edge")
                 continue
-        print("add edge of type {} between {} and {}".format(edge_type, u, v))
+        #print("add edge of type {} between {} and {}".format(edge_type, u, v))
         CDFG.add_edge(u,v, edge_type=edge_type)
 
-
+# feature computation
 def fan_in_out_compute(DG):
     for nodeid in DG.nodes:
         # only look at edge with edge_type = 8
@@ -126,6 +133,15 @@ def fan_in_out_compute(DG):
         fan_out_edges = [edge for edge in DG.out_edges(nodeid, data=True) if edge[2].get('edge_type', None) == '4']
         DG.nodes[nodeid]['fan_out'] = len(list(fan_out_edges))
 
+
+def check_start_of_path(DG):
+    for nodeid in DG.nodes:
+        if DG.nodes[nodeid]['fan_in'] == 0 and DG.nodes[nodeid]['fan_out'] > 0:
+            DG.nodes[nodeid]['start_of_path'] = 1
+        else:
+            DG.nodes[nodeid]['start_of_path'] = 0
+            
+    return
 
 def graph_node_feat_to_file(out_dir, CDFG):
     with open('{}/graph_node_feature.csv'.format(out_dir), 'w+', newline = '') as wfile:
@@ -172,9 +188,11 @@ def feature_embed(cdfg_dir):
     CDFG = CDFG_raw = nx.MultiDiGraph(nx.drawing.nx_pydot.read_dot("{}/cdfg_filtered.dot".format(cdfg_dir)))
 
     fan_in_out_compute(CDFG)
+    check_start_of_path(CDFG)
+
     
     print("CDFG after fan in out compute: ")
-    print_graph(CDFG)
+    #print_graph(CDFG)
     
     graph_node_feat_to_file(cdfg_dir, CDFG)
     graph_edge_feat_to_file(cdfg_dir, CDFG)
@@ -223,11 +241,11 @@ def df_graph_construct(cdfg_dir):
     CDFG_raw = nx.MultiDiGraph(nx.drawing.nx_pydot.read_dot("{}/cdfg_raw.dot".format(cdfg_dir)))
     CDFG = nx.MultiDiGraph()
     print("CDFG")
-    print_graph(CDFG_raw)
+    #print_graph(CDFG_raw)
     
     cdfg_attribute_filter(CDFG_raw, CDFG, "{}/coloring.csv".format(cdfg_dir))
     print("CDFG after attribute filtering")
-    print_graph(CDFG)
+    #print_graph(CDFG)
     # cdfg_compatibility_filter(CDFG, coloring_file)
     # print_graph(CDFG)
 
@@ -281,12 +299,12 @@ if __name__ == "__main__":
     #     filter_compatibility_edge(coloring_file, cdfg_file, filtered_cdfg_file)
     # run_routine()
 
-    # for design_point_name, coloring_solution_name, vivado_run_success in zip(first_column, second_column, sixth_column):
-    #     if not vivado_run_success:
-    #         continue
+    for design_point_name, coloring_solution_name, vivado_run_success in zip(first_column, second_column, sixth_column):
+        if not vivado_run_success:
+            continue
         
-    #     df_graph_construct("{}/{}/{}".format(graph_path, design_point_name, coloring_solution_name))
-    #     feature_embed("{}/{}/{}".format(graph_path, design_point_name, coloring_solution_name))
+        df_graph_construct("{}/{}/{}".format(graph_path, design_point_name, coloring_solution_name))
+        feature_embed("{}/{}/{}".format(graph_path, design_point_name, coloring_solution_name))
 
-    df_graph_construct("{}/{}/{}".format(graph_path, "atax_io1_l1n1n1_l3n1n1", "coloring_1"))
-    feature_embed("{}/{}/{}".format(graph_path, "atax_io1_l1n1n1_l3n1n1", "coloring_1"))
+   # df_graph_construct("{}/{}/{}".format(graph_path, "atax_io1_l1n1n1_l3n1n1", "coloring_60"))
+    #feature_embed("{}/{}/{}".format(graph_path, "atax_io1_l1n1n1_l3n1n1", "coloring_60"))
