@@ -32,7 +32,7 @@ dataset_path = "./raw"
 graph_path = "./raw/graphs"
 
 # path
-runtime_solution_path = "{}/runtime_solutions".format(dataset_path)
+runtime_solution_path = "{}/runtime_solutions_dataset".format(dataset_path)
 pragma_file_path = "{}/pragma_file".format(dataset_path)
 
 
@@ -310,8 +310,11 @@ def run_bambu_with_coloring_solution():
     f.write("Design Point,Coloring solution,CP_latency,dynamic_pwr,lut,success,error,time taken\n")
     f.close()
 
+    design_points_to_run = ["atax_io1_l1n1n1_l3n1n1"]
+    design_points_to_run = os.listdir(runtime_solution_path)
+
     # read projects to run
-    for design_point_name in os.listdir(runtime_solution_path):
+    for design_point_name in design_points_to_run:
         print("################# start running design point {} #####################".format(design_point_name))
         print("################# divide coloring solutions into group of {} #####################".format(project_parallel_run))
         coloring_solutions_list = os.listdir("{}/{}".format(runtime_solution_path, design_point_name))
@@ -490,7 +493,8 @@ def run_vivado_for_coloring_solution(coloring_solution, design_point_name, lock)
    
     
     
-    vivado_tcl_path = "{}/{}".format(bambu_run_path, "/HLS_output/Synthesis/vivado_flow/vivado.tcl")
+    vivado_tcl_path = "{}/{}".format(bambu_run_path, "HLS_output/Synthesis/vivado_flow/vivado.tcl")
+    vivado_noop_tcl_path = "{}/{}".format(bambu_run_path, "HLS_output/Synthesis/vivado_flow/vivado_noop.tcl")
     if not os.path.exists(vivado_tcl_path):
         print("################### Vivado tcl file does not exist for design point {} {} #######################".format(design_point_name, coloring_solution_name))
         lock.acquire()
@@ -500,10 +504,29 @@ def run_vivado_for_coloring_solution(coloring_solution, design_point_name, lock)
         lock.release()
         return
 
+    # remove optimization steps from the script
+    lines = list()
+    with open(vivado_tcl_path, "r") as f:
+        lines = f.readlines()
     
+    counter = 0
+    with open(vivado_noop_tcl_path, "w+") as f:
+        for line in lines:
+            if (counter > 0):
+                counter -= 1
+                continue
+            if line.find("# Optionally run optimization if there are timing violations after placement"):
+                counter = 4
+                continue
+            elif line.find("# Optionally run optimization if there are timing violations after routing"):
+                counter = 6
+                continue
+            else:
+                f.write(line)
+
     
 
-    result = subprocess.run("vivado -mode batch -nojournal -nolog -notrace -source HLS_output/Synthesis/vivado_flow/vivado.tcl", shell=True, cwd="{}".format(bambu_run_path), capture_output=True, text=True)
+    result = subprocess.run("vivado -mode batch -nojournal -nolog -notrace -source HLS_output/Synthesis/vivado_flow/vivado_noop.tcl", shell=True, cwd="{}".format(bambu_run_path), capture_output=True, text=True)
     if result.returncode:
         print("################### Fail to run vivado for design point {} {} #######################".format(design_point_name, coloring_solution_name))
         print("Error: ", result.stderr)

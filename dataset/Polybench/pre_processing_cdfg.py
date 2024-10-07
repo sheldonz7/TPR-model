@@ -12,12 +12,14 @@ import pandas as pd
 import csv
 
 from sklearn.preprocessing import OneHotEncoder
+import extract_vivado_info as vivado_info
 
 dataset_path = "./raw"
 
 
 graph_path = dataset_path + "/graphs"
 
+pragma_file_path = dataset_path + "/pragma_file"
 
 vivado_run_status_file = "./raw/pragma_file/custom_coloring_vivado_run_status.csv"
 
@@ -119,7 +121,7 @@ def cdfg_attribute_filter(CDFG_raw, CDFG, coloring_file):
             # print("dst node {} color: {}".format(v, node_color_map.get(v, None))) 
             if node_color_map.get(int(u), None) != node_color_map.get(int(v), None):
             
-                print("compatibility not detected, not adding the edge")
+                #print("compatibility not detected, not adding the edge")
                 continue
         #print("add edge of type {} between {} and {}".format(edge_type, u, v))
         CDFG.add_edge(u,v, edge_type=edge_type)
@@ -191,7 +193,7 @@ def feature_embed(cdfg_dir):
     check_start_of_path(CDFG)
 
     
-    print("CDFG after fan in out compute: ")
+    #print("CDFG after fan in out compute: ")
     #print_graph(CDFG)
     
     graph_node_feat_to_file(cdfg_dir, CDFG)
@@ -240,11 +242,11 @@ def print_graph(graph):
 def df_graph_construct(cdfg_dir):
     CDFG_raw = nx.MultiDiGraph(nx.drawing.nx_pydot.read_dot("{}/cdfg_raw.dot".format(cdfg_dir)))
     CDFG = nx.MultiDiGraph()
-    print("CDFG")
+    #print("CDFG")
     #print_graph(CDFG_raw)
     
     cdfg_attribute_filter(CDFG_raw, CDFG, "{}/coloring.csv".format(cdfg_dir))
-    print("CDFG after attribute filtering")
+    #print("CDFG after attribute filtering")
     #print_graph(CDFG)
     # cdfg_compatibility_filter(CDFG, coloring_file)
     # print_graph(CDFG)
@@ -265,12 +267,40 @@ def df_graph_construct(cdfg_dir):
 
 
 
+def extract_cdfg():
+    vivado_run_status = pd.read_csv(vivado_run_status_file)
+    first_column = vivado_run_status.iloc[:, 0]
+    second_column = vivado_run_status.iloc[:, 1]
+    sixth_column = vivado_run_status.iloc[:, 5]
 
 
 
+    if not os.path.exists(graph_path):
+        os.makedirs(graph_path)
 
+    for design_point_name, coloring_solution_name, vivado_run_success in zip(first_column, second_column, sixth_column):
+        # if not vivado_run_success:
+        #     continue
+        design_name = design_point_name.split("_")[0]
+        bambu_run_path = "{}/{}/{}".format(pragma_file_path, design_point_name, coloring_solution_name + "_bambu_run")
+            
+        if not os.path.exists(bambu_run_path):
+            print("skip {}".format(bambu_run_path))
+        
+        
+        if not os.path.exists("{}/{}".format(graph_path, design_point_name)):
+            os.makedirs("{}/{}".format(graph_path, design_point_name))
 
+        if not os.path.exists("{}/{}/{}".format(graph_path, design_point_name, coloring_solution_name)):
+            os.mkdir("{}/{}/{}".format(graph_path, design_point_name, coloring_solution_name))
 
+        shutil.copy("{}/{}_cdfg_bulk_graph.dot".format(bambu_run_path,design_name), "{}/{}/{}/cdfg_raw.dot".format(graph_path, design_point_name, coloring_solution_name))
+        shutil.copy("{}/coloring_result.csv".format(bambu_run_path), "{}/{}/{}/coloring.csv".format(graph_path, design_point_name, coloring_solution_name))
+        f = open("trash.csv", "a")
+
+        vivado_info.extract_perf(10, bambu_run_path, f)
+        f.close()
+        shutil.copy("{}/perf_measure.csv".format(bambu_run_path), "{}/{}/{}/perf_measure.csv".format(graph_path, design_point_name, coloring_solution_name))
 if __name__ == "__main__":
 
     # read vivado_run_status_file
@@ -298,11 +328,16 @@ if __name__ == "__main__":
 
     #     filter_compatibility_edge(coloring_file, cdfg_file, filtered_cdfg_file)
     # run_routine()
+    # extract_cdfg()
 
     for design_point_name, coloring_solution_name, vivado_run_success in zip(first_column, second_column, sixth_column):
-        if not vivado_run_success:
-            continue
+        # if not vivado_run_success:
+        #     continue
         
+        # extract vivado info + copy files into graph path
+
+        print("pre processing design point {} {}".format(design_point_name, coloring_solution_name))
+
         df_graph_construct("{}/{}/{}".format(graph_path, design_point_name, coloring_solution_name))
         feature_embed("{}/{}/{}".format(graph_path, design_point_name, coloring_solution_name))
 
