@@ -10,8 +10,8 @@ import itertools
 CG_solutions_path = './raw/CG_solutions'
 
 filtered_solutions_path = './raw/filtered_solutions'
-sampled_solutions_path = './raw/sampled_solutions_mem'
-final_solutions_path = './raw/runtime_solutions_mem'
+sampled_solutions_path = './raw/sampled_solutions_dataset'
+final_solutions_path = './raw/runtime_solutions_dataset'
 
 # # target number of data point for each kernel/design
 # target_dataset_size = 
@@ -219,15 +219,12 @@ def filter_function_unit():
 def sample_coloring_result(solution_number):
     # sample the overall coloring result based on the number of different function units used
     # 
-    mem_enable = True
-    mem_fu_list = ["bmem", "bmem-ctrl"]
-    mem_solution_sample_ratio = 0.1
-    mem_solution_sample_limit = 1
 
-    comp_enable = False    
-    comp_fu_list = ["fadd", "fmult"]
-    comp_solution_sample_ratio = 0.5
-    comp_solution_sample_limit = 1
+
+    dataset_limit_for_each_design = 300
+
+    # for design with 7 functional unit, allow the first 3 design point to be multi mem for io4
+    # for design with 8 or more functional unit
 
     if os.path.exists(sampled_solutions_path):
         shutil.rmtree(sampled_solutions_path)
@@ -251,24 +248,63 @@ def sample_coloring_result(solution_number):
 
     
 
-
-    for (design_point_name, fu_solution_number) in solution_number.items():
+    design_point_limit = 3
+    dataset_solution_count = 0
+    for idx, (design_point_name, fu_solution_number) in enumerate(solution_number.items()):
         f.write(design_point_name + ',')
         
         
         if not os.path.exists('{}/{}'.format(sampled_solutions_path, design_point_name)):
             os.mkdir('{}/{}'.format(sampled_solutions_path, design_point_name))
-        num_overall_solutions = 1
-        for (fu_name_full, color_solution_number) in fu_solution_number.items():
+        
+        design_point_solution_count = 1
+        num_fu = len(fu_solution_number.items())
+        print("number of functional unit:", num_fu)
+        
+
+        fu_idx = idx%num_fu
+      
+        
+
+        for idx, (fu_name_full, color_solution_number) in enumerate(fu_solution_number.items()):
+            mem_enable = False
+            mem_fu_list = ["bmem", "bmem-ctrl"]
+            mem_solution_sample_ratio = 0.1
+            mem_solution_sample_limit = 3
+
+            comp_enable = True 
+            comp_fu_list = ["fadd", "fmult"]
+            comp_solution_sample_ratio = 0.4
+            comp_solution_sample_limit = 3
+            
+            if (len(color_solution_number) > 5):
+                mem_solution_sample_limit = 1
+                comp_solution_sample_limit = 1
+            elif (len(color_solution_number) > 4):
+                mem_solution_sample_limit = 2
+                comp_solution_sample_limit = 2
+
+            
             if not os.path.exists('{}/{}/{}'.format(sampled_solutions_path, design_point_name, fu_name_full)):
                 os.mkdir('{}/{}/{}'.format(sampled_solutions_path, design_point_name, fu_name_full))
             fu_name = fu_name_full.split('_')[-1]
             fu_solution_taken = 0
+
+            if idx == fu_idx:
+                mem_enable = True
+               # comp_enable = True
+            else:
+                mem_enable = False
+                # comp_enable = False
+
             if fu_name in mem_fu_list and mem_enable:
+            
+                
+
                 for num_color, num_solution in color_solution_number.items():
                     # adjust the size
                     # if len(color_solution_number.items()) >
-
+                    
 
                     num_solution_taken = round(num_solution * mem_solution_sample_ratio)
                     if num_solution_taken == 0:
@@ -291,8 +327,8 @@ def sample_coloring_result(solution_number):
                     num_solution_taken = round(num_solution * comp_solution_sample_ratio)
                     if num_solution_taken == 0:
                         num_solution_taken = 1
-                    elif num_solution_taken > mem_solution_sample_limit:
-                        num_solution_taken = mem_solution_sample_limit
+                    elif num_solution_taken > comp_solution_sample_limit:
+                        num_solution_taken = comp_solution_sample_limit
                     fu_solution_taken += num_solution_taken
                     i = 0
                     for color_solution in os.listdir('{}/{}/{}/{}'.format(filtered_solutions_path, design_point_name, fu_name_full, num_color)):               
@@ -314,27 +350,18 @@ def sample_coloring_result(solution_number):
                     break
             
             print("fu_solution_taken: ", fu_solution_taken)
-            num_overall_solutions *= fu_solution_taken
+            design_point_solution_count *= fu_solution_taken
 
-        f.write(str(num_overall_solutions) + "\n")
+
+        f.write(str(design_point_solution_count) + "\n")
+        dataset_solution_count += design_point_solution_count
+    f.write("overall, " + str(dataset_solution_count) + "\n")
     f.close()        
     # simple way to check bram, mult and add numbers
     # last fu is alway fmult
     # second last fu is always fadd
     # third last fu is alway bmem control
     # all fus in the front are bmem
-
-
-    # for design_point_name in design_point_list:
-    #     # iterate through all function units and combine the solutions
-    #     for fu_solution in os.listdir('{}/{}'.format(filtered_solutions_path, design_point_name)):
-
-
-
-    
-
-
-
 
 
 if __name__ == '__main__':
@@ -376,6 +403,7 @@ if __name__ == '__main__':
             design_point_coloring_solutions.append(fu_coloring_solutions)
 
 
+        
         candidate_solutions = list(itertools.product(*design_point_coloring_solutions))
         
         design_point_final_solution_path = "{}/{}".format(final_solutions_path, design_point_name)
@@ -383,20 +411,20 @@ if __name__ == '__main__':
         if not os.path.exists(design_point_final_solution_path):
             os.mkdir(design_point_final_solution_path)
 
-        f = open("{}/coloring_solutions_info.csv".format(design_point_final_solution_path), "w")
-        f.write("coloring_solution_index,{}\n".format(design_point_fu_description))
+        # f = open("{}/coloring_solutions_info.csv".format(design_point_final_solution_path), "w")
+        # f.write("coloring_solution_index,{}\n".format(design_point_fu_description))
 
 
         for index, candidate in enumerate(candidate_solutions):
             print("candidate solution: ", candidate)
             
             target_csv_path = design_point_final_solution_path + "/"
-            f.write(str(index))
+            # f.write(str(index))
 
-            for coloring_solution in candidate:
-                f.write(",{}".format(coloring_solution.split('/')[-1][:-4]))
+            # for coloring_solution in candidate:
+            #     f.write(",{}".format(coloring_solution.split('/')[-1][:-4]))
 
-            f.write("\n")
+            # f.write("\n")
 
             target_csv_path += 'coloring_{}.csv'.format(str(index))
             

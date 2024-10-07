@@ -119,7 +119,7 @@ def generate_dataframe(CDFG, ppa, df_path):
     print("generating dataframe...")
     data = {}
 
-    print(list(CDFG.edges))
+    #print(list(CDFG.edges))
 
     for i, (_, feat_dict) in enumerate(CDFG.nodes(data = True)):
         for key, value in feat_dict.items():
@@ -149,7 +149,7 @@ def generate_dataframe(CDFG, ppa, df_path):
             pass
  
     edges = [(int(u), int(v), int(key)) for u, v, key in CDFG.edges]
-    print(edges)
+    #print(edges)
 
 
     edge_index = torch.LongTensor(edges).t().contiguous()
@@ -190,8 +190,8 @@ if __name__ == "__main__":
     graph_path_test_subset = ["atax_io1_l1n1n1_l3n1n1"]
     coloring_solution_test_subset = ["coloring_0"]
 
-    #for i, design_point_name in enumerate(os.listdir(graph_path)):
-    for i, design_point_name in enumerate(graph_path_test_subset):
+    for i, design_point_name in enumerate(os.listdir(graph_path)):
+    # for i, design_point_name in enumerate(graph_path_test_subset):
         print("processing design point {}".format(design_point_name))
         kernel_name = design_point_name.split('_')[0]
 
@@ -204,8 +204,8 @@ if __name__ == "__main__":
         if dataframe_list_all.get(kernel_name) is None:
             dataframe_list_all[kernel_name] = list()
 
-        #for j, prj_name in enumerate(os.listdir(graph_path + '/' + design_point_name)):
-        for j, prj_name in enumerate(coloring_solution_test_subset):
+        for j, prj_name in enumerate(os.listdir(graph_path + '/' + design_point_name)):
+        #for j, prj_name in enumerate(coloring_solution_test_subset):
             print("processing project {}".format(prj_name))
             if not os.path.exists("{}/{}/{}/cdfg_0.dot".format(graph_path, design_point_name, prj_name)):
                 print("No cdfg file in {} folder".format(prj_name))
@@ -213,7 +213,7 @@ if __name__ == "__main__":
             
             CDFG = nx.MultiDiGraph(nx.drawing.nx_pydot.read_dot('{}/{}/{}/cdfg_0.dot'.format(graph_path, design_point_name, prj_name)))
             CDFG = nx.convert_node_labels_to_integers(CDFG)
-            print(CDFG.edges)
+            #print(CDFG.edges)
             # pyg_DG = CDFG.__class__()
             # pyg_DG.add_nodes_from(CDFG)
             # pyg_DG.add_edges_from(CDFG.edges)
