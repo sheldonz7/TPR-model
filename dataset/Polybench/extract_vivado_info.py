@@ -70,13 +70,9 @@ def extract_post_route_timing_summary(target_file):
     digit_pos=0
     digit_pos_beg=0
     for digit in Slack_line:
-        print("digit: ", digit)
-        if not slack_met:
-            if digit == "-" and (digit_pos_beg == 0):
-                digit_pos_beg=digit_pos
-        else:    
-            if digit.isdigit() and (digit_pos_beg == 0):
-                digit_pos_beg=digit_pos
+        print("digit: ", digit)   
+        if (digit.isdigit() or digit == "-") and (digit_pos_beg == 0):
+            digit_pos_beg=digit_pos
         
 
         if digit_pos_beg != 0 and digit.isdigit() == False and digit != '-' and digit != '.':   
@@ -161,11 +157,11 @@ def add_to_perf_measure(clock_period, Slack_data, dynamic_pwr, lut, prj_path, de
     # else:
     #     os.mkdir('./{}/hls/sample'.format(target))
     perf_measure = open('{}/perf_measure.csv'.format(prj_path), 'w+')
-    cp_latency=clock_period - float(Slack_data)
+    cp_latency=float(clock_period) - float(Slack_data)
     l = perf_measure.readlines()
  
     perf_measure.write("cp_latency,dynamic_pwr,lut\n{},{},{}\n".format(cp_latency, dynamic_pwr, lut))
-    dest_csv_file.write("{},{},{}".format(cp_latency, dynamic_pwr, lut))
+    dest_csv_file.write("{},{},{}".format(format(cp_latency, '.3f'), dynamic_pwr, lut))
     #perf_measure.write("{},{},{}\n".format(cp_latency, dynamic_pwr, lut))
 
 #####################################################################
@@ -204,10 +200,10 @@ def extract_perf(clock_period, project_path, dest_csv_file):
         return 1
 
     target_line, target_data, Slack_MET_line, Slack_data = extract_post_route_timing_summary(target_file_2)
-    print("get slack data: ", Slack_data)
-    if float(Slack_data) < 0.0:
-        print("Slack is negative, skipping this project")
-        return 2
+    print("get slack data: ", float(Slack_data))
+    # if float(Slack_data) < 0.0:
+    #     print("Slack is negative, skipping this project")
+    #     return 2
     #data path delay is saved in target_data
     #post_route_timing_summary_file.write("{}:\n{}{}".format(target, Slack_MET_line, target_line))
 
@@ -230,3 +226,6 @@ def extract_perf(clock_period, project_path, dest_csv_file):
 
 
     return 0
+
+f = open("perf_measure.csv", "w+")
+extract_perf(10.0, "./raw/pragma_file/atax_io1_l1n1n1_l3n1n1/coloring_189_bambu_run/", f)
