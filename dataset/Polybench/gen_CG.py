@@ -20,7 +20,7 @@ xilinx_part_number = "xcku060-3ffva1156-VVD"
 channel_number = 4
 
 # clock
-clock_period = 10
+clock_period = 5
 
 # global parameter
 start_anew = True
@@ -54,7 +54,7 @@ def split_i(list, pos, m):
 ###########
 # creating pragma marked file 
 def gen(anno, kernel_name, prj_name):
-    dataset_gen_folder='{}/pragma_file'.format(dataset_path)
+    dataset_gen_folder='{}/pragma_file_{}_ns_{}_channel'.format(dataset_path, clock_period, channel_number)
     if os.path.exists(dataset_gen_folder):
         pass
     else:  
@@ -136,12 +136,12 @@ def run_routine(kernel_name, unroll_fac_loop_dic):
     mark = unroll_fac_loop_dic
     lp_d = gen_strategy(partition_factor, unroll_factor)
     
-    dataset_gen_folder = Path("./raw/pragma_file")
+    dataset_gen_folder = Path("./raw/pragma_file_{}_ns_{}_channel".format(clock_period, channel_number))
     if dataset_gen_folder.exists():
         pass
     else:  
         os.mkdir(dataset_gen_folder)
-    ftotal = open('./raw/pragma_file/prj_total_{}.txt'.format(kernel_name), 'w+')
+    ftotal = open('{}/prj_total_{}.txt'.format(dataset_gen_folder, kernel_name), 'w+')
     
     for lp in lp_d:
         iob = lp[0]
@@ -216,7 +216,7 @@ def run_routine(kernel_name, unroll_fac_loop_dic):
                     anno[lp] = lp2[index]
         ftotal.write('\n')
         gen(anno, kernel_name, prj_name)
-        shutil.copy('./{}/hls/src/{}.h'.format(kernel_name, kernel_name), './raw/pragma_file/{}_{}/'.format(kernel_name, prj_name))
+        shutil.copy('./{}/hls/src/{}.h'.format(kernel_name, kernel_name), './raw/pragma_file_{}_ns_{}_channel/{}_{}/'.format(clock_period, channel_number, kernel_name, prj_name))
         total_cnt = total_cnt + 1
     ftotal.close()
     return total_cnt
@@ -245,9 +245,8 @@ def generating_HLS_strategy():
 
 #####################################  part2: run Bambu with the generated strategy  ######################################
 
-def running_bambu(start_anew=True):
-    CG_path = "{}/CG/".format(dataset_path)
-    CDFG_path = "{}/CDFG/".format(dataset_path)
+def run_bambu(start_anew=True):
+    CG_path = "{}/CG_{}_ns_{}_channel/".format(dataset_path, clock_period, channel_number)
     
     # a csv file to keep track of CG generation
     f = open("{}/CG_generation_status.csv".format(dataset_path), "w")
@@ -258,7 +257,7 @@ def running_bambu(start_anew=True):
     os.mkdir(CG_path)
 
     print("############################ Running Bambu with the generated strategy ####################################")
-    pragma_file_path = "{}/pragma_file".format(dataset_path)
+    pragma_file_path = "{}/pragma_file_{}_ns_{}_channel".format(dataset_path, clock_period, channel_number)
     design_folders = os.listdir(pragma_file_path)
 
     # # bring up Docker container if not started yet
@@ -272,7 +271,7 @@ def running_bambu(start_anew=True):
             design_name = design_point_name.split('_')[0]
             print("design name" + design_name)
             bambu_run_path = "{}/{}/bambu_CG_run".format(pragma_file_path, design_point_name)
-            docker_run_path = "/workspace/TPR-model/dataset/Polybench/raw/pragma_file/{}/bambu_CG_run/".format(design_point_name)
+            docker_run_path = "/workspace/TPR-model/dataset/Polybench/raw/pragma_file_{}_ns_{}_channel/{}/bambu_CG_run/".format(clock_period, channel_number, design_point_name)
             print(docker_run_path)
             # bambu_output_folder = Path("{}/bambu_output".format(folder_path))
             
@@ -342,6 +341,6 @@ if __name__ == "__main__":
 
 
     generating_HLS_strategy()
-    running_bambu()
+    run_bambu()
     #vivado_info.running_route(clock_period)
     print("Finish to generate CGs")

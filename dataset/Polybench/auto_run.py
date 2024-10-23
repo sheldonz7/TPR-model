@@ -23,19 +23,22 @@ xilinx_part_number = "xcku060-3ffva1156-VVD"
 channel_number = 4
 
 # clock
-clock_period = 10
+clock_period = 5
+# clock_period = 10
 
 start_anew = True
 
 dataset_path = "./raw"
 
-graph_path = "./raw/graphs"
+config_name = "{}_ns_{}_channel".format(clock_period, channel_number)
+
+graph_path = "./raw/graphs_{}".format(config_name)
+
 
 # path
 runtime_solution_path = "{}/runtime_solutions_dataset".format(dataset_path)
-pragma_file_path = "{}/pragma_file".format(dataset_path)
-
-
+#pragma_file_path = "{}/pragma_file".format(dataset_path)
+pragma_file_path = "{}/pragma_file_{}".format(dataset_path, config_name)
 
 project_parallel_run = 8
 
@@ -313,6 +316,9 @@ def run_bambu_with_coloring_solution():
     design_points_to_run = ["atax_io1_l1n1n1_l3n1n1"]
     design_points_to_run = os.listdir(runtime_solution_path)
 
+    if not os.path.exists(graph_path):
+        os.makedirs(graph_path)
+
     # read projects to run
     for design_point_name in design_points_to_run:
         print("################# start running design point {} #####################".format(design_point_name))
@@ -403,7 +409,7 @@ def run_bambu_for_coloring_solution(coloring_solution, design_point_name, lock):
     print("################# start running Bambu for design point {} {} #####################".format(design_point_name, coloring_solution_name))
 
     bambu_run_path = "{}/{}/{}".format(pragma_file_path, design_point_name, coloring_solution_name + "_bambu_run")
-    docker_run_path = "/workspace/TPR-model/dataset/Polybench/raw/pragma_file/{}/{}".format(design_point_name, coloring_solution_name + "_bambu_run")
+    docker_run_path = "/workspace/TPR-model/dataset/Polybench/raw/pragma_file_{}_ns_{}_channel/{}/{}".format(clock_period, channel_number, design_point_name, coloring_solution_name + "_bambu_run")
     
 
     if os.path.exists(bambu_run_path):
@@ -446,6 +452,18 @@ def run_bambu_for_coloring_solution(coloring_solution, design_point_name, lock):
         lock.release()
         return
 
+    # extract DFG
+    if os.path.exists("{}/{}_dfg_bulk_graph.dot".format(bambu_run_path,design_name)):
+       shutil.copy("{}/{}_dfg_bulk_graph.dot".format(bambu_run_path,design_name), "{}/{}/{}/dfg_raw.dot".format(graph_path, design_point_name, coloring_solution_name))
+    else:
+        print("################### Fail to extract CDFG for design point {} {} #######################".format(design_point_name, coloring_solution_name))
+        lock.acquire()
+        f = open("{}/custom_coloring_bambu_run_status.csv".format(pragma_file_path), "a")
+        f.write("{},{},{},{},{}\n".format(design_point_name, coloring_solution_name, "0", "Fail to extract DFG", time.time() - start))
+        f.close()
+        lock.release()
+        return
+
     if os.path.exists(coloring_solution_file_path):
         # also copy the coloring solution to the graph path
         shutil.copy(coloring_solution_file_path, "{}/{}/{}/coloring.csv".format(graph_path, design_point_name, coloring_solution_name))
@@ -473,6 +491,26 @@ def run_bambu_for_coloring_solution(coloring_solution, design_point_name, lock):
 
     # for each project and each of its solutions, copy that solution to the project folder and run Bambu
     
+
+def remove_vivado_script_optimization_steps(vivado_tcl_path, vivado_noop_tcl_path):
+    lines = list()
+    with open(vivado_tcl_path, "r") as f:
+        lines = f.readlines()
+    
+    counter = 0
+    with open(vivado_noop_tcl_path, "w+") as f:
+        for line in lines:
+            if (counter > 0):
+                counter -= 1
+                continue
+            if line.find("# Optionally run optimization if there are timing violations after placement") != -1:
+                counter = 4
+                continue
+            elif line.find("# Optionally run optimization if there are timing violations after routing") != -1:
+                counter = 6
+                continue
+            else:
+                f.write(line)
 
 
 def run_vivado_for_coloring_solution(coloring_solution, design_point_name, lock):
@@ -505,25 +543,7 @@ def run_vivado_for_coloring_solution(coloring_solution, design_point_name, lock)
         return
 
     # remove optimization steps from the script
-    lines = list()
-    with open(vivado_tcl_path, "r") as f:
-        lines = f.readlines()
-    
-    counter = 0
-    with open(vivado_noop_tcl_path, "w+") as f:
-        for line in lines:
-            if (counter > 0):
-                counter -= 1
-                continue
-            if line.find("# Optionally run optimization if there are timing violations after placement"):
-                counter = 4
-                continue
-            elif line.find("# Optionally run optimization if there are timing violations after routing"):
-                counter = 6
-                continue
-            else:
-                f.write(line)
-
+    remove_vivado_script_optimization_steps(vivado_tcl_path, vivado_noop_tcl_path)
     
 
     result = subprocess.run("vivado -mode batch -nojournal -nolog -notrace -source HLS_output/Synthesis/vivado_flow/vivado_noop.tcl", shell=True, cwd="{}".format(bambu_run_path), capture_output=True, text=True)
@@ -545,7 +565,7 @@ def run_vivado_for_coloring_solution(coloring_solution, design_point_name, lock)
     lock.acquire()
     f = open("{}/custom_coloring_vivado_run_status.csv".format(pragma_file_path), "a")
     f.write("{},{},".format(design_point_name, coloring_solution_name))
-    error = vivado_info.extract_perf(10, bambu_run_path, f)
+    error = vivado_info.extract_perf(clock_period, bambu_run_path, f)
     if error:
         if error == 1:
             f.write("{},{},{},{},{},{}\n".format( "N/A", "N/A", "N/A","0", "Fail to extract performance information", time.time() - start))
@@ -565,9 +585,6 @@ def run_vivado_for_coloring_solution(coloring_solution, design_point_name, lock)
     lock.release()
 
     
-
-    
-
 
 
 
