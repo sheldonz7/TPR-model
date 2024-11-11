@@ -9,9 +9,9 @@ import itertools
 
 CG_solutions_path = './raw/CG_solutions'
 
-filtered_solutions_path = './raw/filtered_solutions'
-sampled_solutions_path = './raw/sampled_solutions_dataset'
-final_solutions_path = './raw/runtime_solutions_dataset'
+filtered_solutions_path = './raw/filtered_solutions_mem'
+sampled_solutions_path = './raw/sampled_solutions_mem'
+final_solutions_path = './raw/runtime_solutions_mem'
 
 # # target number of data point for each kernel/design
 # target_dataset_size = 
@@ -363,6 +363,148 @@ def sample_coloring_result(solution_number):
     # third last fu is alway bmem control
     # all fus in the front are bmem
 
+def sample_coloring_result_mem(solution_number):
+    # sample the overall coloring result based on the number of different function units used
+    # 
+
+
+    dataset_limit_for_each_design = 300
+
+    # for design with 7 functional unit, allow the first 3 design point to be multi mem for io4
+    # for design with 8 or more functional unit
+
+    if os.path.exists(sampled_solutions_path):
+        shutil.rmtree(sampled_solutions_path)
+    os.mkdir(sampled_solutions_path)
+    # for fu in filtered_solutions_path:
+    #     solution_count = dict()
+        
+    #     fu_name = fu.split('_')[-1]
+    #     if (fu_name in mem_fu_list and mem_enable) or (fu_name in comp_fu_list and comp_enable):
+    #         for fu_coloring_solution in filtered_solutions_path + '/' + fu:
+    #             num_color = int(fu_coloring_solution.split('_')[1])
+    #             if num_color not in solution_count:
+    #                 solution_count[num_color] = 1
+    #             else:
+    #                 solution_count[num_color] += 1
+    #     else:
+            
+
+    f = open("{}/coloring_solutions_sampling_summary.csv".format(sampled_solutions_path), "w")
+    f.write("design_point_name, expected number of solution\n")
+
+    
+
+    design_point_limit = 3
+    dataset_solution_count = 0
+    for idx, (design_point_name, fu_solution_number) in enumerate(solution_number.items()):
+        f.write(design_point_name + ',')
+        
+        
+        if not os.path.exists('{}/{}'.format(sampled_solutions_path, design_point_name)):
+            os.mkdir('{}/{}'.format(sampled_solutions_path, design_point_name))
+        
+        design_point_solution_count = 1
+        num_fu = len(fu_solution_number.items())
+        print("number of functional unit:", num_fu)
+        
+
+        fu_idx = idx%num_fu
+      
+        
+
+        for idx, (fu_name_full, color_solution_number) in enumerate(fu_solution_number.items()):
+            mem_enable = True
+            mem_fu_list = ["bmem", "bmem-ctrl"]
+            mem_solution_sample_ratio = 0.1
+            mem_solution_sample_limit = 2
+
+            comp_enable = False 
+            comp_fu_list = ["fadd", "fmult"]
+            comp_solution_sample_ratio = 0.4
+            comp_solution_sample_limit = 3
+            
+            if (len(color_solution_number) > 5):
+                mem_solution_sample_limit = 1
+                comp_solution_sample_limit = 1 
+            elif (len(color_solution_number) > 4):
+                mem_solution_sample_limit = 1
+                comp_solution_sample_limit = 2
+
+            
+            if not os.path.exists('{}/{}/{}'.format(sampled_solutions_path, design_point_name, fu_name_full)):
+                os.mkdir('{}/{}/{}'.format(sampled_solutions_path, design_point_name, fu_name_full))
+            fu_name = fu_name_full.split('_')[-1]
+            fu_solution_taken = 0
+
+            # if idx == fu_idx:
+            #     mem_enable = True
+            #    # comp_enable = True
+            # else:
+            #     mem_enable = False
+            #     # comp_enable = False
+
+            if fu_name in mem_fu_list and mem_enable:
+            
+                
+
+                for num_color, num_solution in color_solution_number.items():
+                    # adjust the size
+                    # if len(color_solution_number.items()) >
+                    
+
+                    num_solution_taken = round(num_solution * mem_solution_sample_ratio)
+                    if num_solution_taken == 0:
+                        num_solution_taken = 1
+                    elif num_solution_taken > mem_solution_sample_limit:
+                        num_solution_taken = mem_solution_sample_limit
+                    
+                    fu_solution_taken += num_solution_taken
+                    
+                    i = 0
+                    for color_solution in os.listdir('{}/{}/{}/{}'.format(filtered_solutions_path, design_point_name, fu_name_full, num_color)):
+                        if i == num_solution_taken:
+                            break
+                        shutil.copy('{}/{}/{}/{}/{}'.format(filtered_solutions_path, design_point_name, fu_name_full, num_color, color_solution), '{}/{}/{}/'.format(sampled_solutions_path, design_point_name, fu_name_full))
+                        #print('Copy {} to sampled_solutions for design point {}'.format(color_solution, design_point_name))
+                        #print('------------------')
+                        i += 1
+            elif fu_name in comp_fu_list and comp_enable:
+                for num_color, num_solution in color_solution_number.items():
+                    num_solution_taken = round(num_solution * comp_solution_sample_ratio)
+                    if num_solution_taken == 0:
+                        num_solution_taken = 1
+                    elif num_solution_taken > comp_solution_sample_limit:
+                        num_solution_taken = comp_solution_sample_limit
+                    fu_solution_taken += num_solution_taken
+                    i = 0
+                    for color_solution in os.listdir('{}/{}/{}/{}'.format(filtered_solutions_path, design_point_name, fu_name_full, num_color)):               
+                        if i == num_solution_taken:
+                            break
+                        shutil.copy('{}/{}/{}/{}/{}'.format(filtered_solutions_path, design_point_name, fu_name_full, num_color, color_solution), '{}/{}/{}/'.format(sampled_solutions_path, design_point_name, fu_name_full))
+                        #print('Copy {} to sampled_solutions for design point {}'.format(color_solution, design_point_name))
+                        #print('------------------')
+                        i += 1
+            else:
+                # only pick one solution from the least number of colors
+                num_color = min(color_solution_number.keys())
+                fu_solution_taken += 1
+                for color_solution in os.listdir('{}/{}/{}/{}'.format(filtered_solutions_path, design_point_name, fu_name_full, num_color)):
+                    print("not applying ratio")
+                    shutil.copy('{}/{}/{}/{}/{}'.format(filtered_solutions_path, design_point_name, fu_name_full, num_color, color_solution), '{}/{}/{}/'.format(sampled_solutions_path, design_point_name, fu_name_full))
+                    #print('Copy {} to sampled_solutions for design point {}'.format(color_solution, design_point_name))
+                    #print('------------------')
+                    break
+            
+            print("fu_solution_taken: ", fu_solution_taken)
+            design_point_solution_count *= fu_solution_taken
+
+
+        f.write(str(design_point_solution_count) + "\n")
+        dataset_solution_count += design_point_solution_count
+    f.write("overall, " + str(dataset_solution_count) + "\n")
+    f.close()        
+
 
 if __name__ == '__main__':
     filter_enabled = sys.argv[1]
@@ -381,7 +523,7 @@ if __name__ == '__main__':
         shutil.rmtree(final_solutions_path)
     os.mkdir(final_solutions_path)
 
-    sample_coloring_result(solution_number)
+    sample_coloring_result_mem(solution_number)
 
     for design_point_name in os.listdir(sampled_solutions_path):
         design_point_coloring_solutions = []
@@ -418,7 +560,19 @@ if __name__ == '__main__':
         for index, candidate in enumerate(candidate_solutions):
             print("candidate solution: ", candidate)
             
+            # get specific functional unit config
+            fu_config_name = "fu"
+            for fu_solution in candidate:
+                fu_num = fu_solution.split('/')[-2].split('_')[-2]
+                color_num = fu_solution.split('/')[-1].split('_')[1]
+                fu_config_name = "_".join([fu_config_name, fu_num, color_num])
+                print("fu_name: ", fu_name)
+                print("color_num: ", color_num)
+            print("fu_config_name: ", fu_config_name)
             target_csv_path = design_point_final_solution_path + "/"
+
+            if not os.path.exists(target_csv_path):
+                os.mkdir(target_csv_path)
             # f.write(str(index))
 
             # for coloring_solution in candidate:
@@ -426,7 +580,7 @@ if __name__ == '__main__':
 
             # f.write("\n")
 
-            target_csv_path += 'coloring_{}.csv'.format(str(index))
+            target_csv_path += 'coloring_{}_{}.csv'.format(str(index), fu_config_name)
             
             
             merge_coloring_solutions(candidate, target_csv_path)
