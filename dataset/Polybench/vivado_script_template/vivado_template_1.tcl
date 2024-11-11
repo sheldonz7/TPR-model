@@ -1,0 +1,18 @@
+  puts $ofile_report "<?xml version=\"1.0\"?>"
+  puts $ofile_report "<document>"
+  puts $ofile_report "  <application>"
+  puts $ofile_report "    <section stringID=\"XILINX_SYNTHESIS_SUMMARY\">"
+  puts $ofile_report "      <item stringID=\"XILINX_SLICE\" value=\"$CLBs\"/>"
+  puts $ofile_report "      <item stringID=\"XILINX_SLICE_REGISTERS\" value=\"$CLBRegisters\"/>"
+  puts $ofile_report "      <item stringID=\"XILINX_SLICE_LUTS\" value=\"$CLBLUTs\"/>"
+  puts $ofile_report "      <item stringID=\"XILINX_BLOCK_RAMFIFO\" value=\"$BRAMFIFO\"/>"
+  puts $ofile_report "      <item stringID=\"XILINX_DRAM\" value=\"$DRAM\"/>"
+  puts $ofile_report "      <item stringID=\"XILINX_IOPIN\" value=\"$BIOB\"/>"
+  puts $ofile_report "      <item stringID=\"XILINX_DSPS\" value=\"$DSPs\"/>"
+  puts $ofile_report "      <item stringID=\"XILINX_POWER\" value=\"$TotPower\"/>"
+  puts $ofile_report "      <item stringID=\"XILINX_DESIGN_DELAY\" value=\"$design_delay\"/>"
+  puts $ofile_report "    </section>"
+  puts $ofile_report "  </application>"
+  puts $ofile_report "</document>"
+  close $ofile_report
+}; #END PROC
