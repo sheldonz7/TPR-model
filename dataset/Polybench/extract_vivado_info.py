@@ -3,6 +3,7 @@ import shutil
 import subprocess
 import sys
 import io
+import re
 
 ###################################################################
 def extract_post_route_power(target_file):
@@ -70,7 +71,7 @@ def extract_post_route_timing_summary(target_file):
     digit_pos=0
     digit_pos_beg=0
     for digit in Slack_line:
-        print("digit: ", digit)   
+        # print("digit: ", digit)   
         if (digit.isdigit() or digit == "-") and (digit_pos_beg == 0):
             digit_pos_beg=digit_pos
         
@@ -150,6 +151,33 @@ def extract_post_route_util(target_file):
         pos1=pos1+1
     lut = CLB_LUTS_target_line[lut_data_beg:lut_data_end]
     return CLB_LUTS_target_line, LUT_as_Logic_target_line, LUT_as_Memory_target_line, line1, line2, line3, lut
+
+
+def parse_clb_luts_usage(report_path): 
+    """ Parse the CLB LUTs 'Used' value from a Vivado utilization report. 
+    Args: report_path (str): Path to the Vivado utilization report file Returns: int: The number of CLB LUTs used, or None if parsing fails Raises: FileNotFoundError: If the report file cannot be found ValueError: If the CLB LUTs section cannot be found or parsed """ 
+    
+    
+    try:
+        with open(report_path, 'r') as f:
+            content = f.read() # Find the CLB Logic section and extract the CLB LUTs line 
+            
+            # Looking for line that starts with "| CLB LUTs" followed by numbers and |
+            pattern = r'\|\s*CLB LUTs\s*\|\s*(\d+)\s*\|'
+            match = re.search(pattern, content)
+            
+            if not match:
+                raise ValueError("Could not find CLB LUTs usage in the report")
+            
+            return int(match.group(1))
+    
+    except FileNotFoundError:
+        raise FileNotFoundError(f"Could not find report file: {report_path}")
+    
+    except Exception as e:
+        raise ValueError(f"Error parsing report: {str(e)}")
+
+
 #####################################################################
 def add_to_perf_measure(clock_period, Slack_data, dynamic_pwr, lut, prj_path, dest_csv_file):
     # if 'sample' in os.listdir('./{}/hls/'.format(target)):
@@ -170,11 +198,11 @@ def extract_perf(clock_period, project_path, dest_csv_file):
 
 
     print("extracting vivado information beginning")
-    path="./"
-    if 'vivado_info' in os.listdir(path):
-        pass
-    else:
-        os.mkdir('./vivado_info')
+    # path="./"
+    # if 'vivado_info' in os.listdir(path):
+    #     pass
+    # else:
+    #     os.mkdir('./vivado_info')
     targets=list()
     # post_route_timing_summary_file = open("./vivado_info/"+"p_r_timing_summary"+".txt", 'a+')
     # post_route_power_file = open('./vivado_info/'+'p_r_power'+'.txt', 'a+')
@@ -186,7 +214,7 @@ def extract_perf(clock_period, project_path, dest_csv_file):
         #    targets.append(i)
     # targets=['atax', 'bicg', 'gemm', 'gesummv', 'k2mm', 'k3mm', 'mvt', 'syr2k', 'syrk']
 
-    target_file_1="{}/HLS_output/Synthesis/vivado_flow/post_route_power.rpt".format(project_path)
+    target_file_1="{}/post_route_power.rpt".format(project_path)
     if os.path.exists(target_file_1) == False:
         print("post_route_power.rpt does not exist")
         return 1
@@ -194,7 +222,7 @@ def extract_perf(clock_period, project_path, dest_csv_file):
     #target data is saved in target_data variable
     #post_route_power_file.write("{}{}\n".format(target, target_line.replace(f'\n', '')))
 
-    target_file_2="{}/HLS_output/Synthesis/vivado_flow/post_route_timing_summary.rpt".format(project_path)
+    target_file_2="{}/post_route_timing_summary.rpt".format(project_path)
     if os.path.exists(target_file_2) == False:
         print("post_route_timing_summary.rpt does not exist")
         return 1
@@ -207,17 +235,20 @@ def extract_perf(clock_period, project_path, dest_csv_file):
     #data path delay is saved in target_data
     #post_route_timing_summary_file.write("{}:\n{}{}".format(target, Slack_MET_line, target_line))
 
-    target_file_3="{}/HLS_output/Synthesis/vivado_flow/post_route_util.rpt".format(project_path)
+    target_file_3="{}/post_route_util.rpt".format(project_path)
     if os.path.exists(target_file_3) == False:
         print("post_route_util.rpt does not exist")
         return 1
     
-    CLB_line, LUT_Logic_line, LUT_Memory_line, line1, line2, line3, lut = extract_post_route_util(target_file_3)
+    #CLB_line, LUT_Logic_line, LUT_Memory_line, line1, line2, line3, lut = extract_post_route_util(target_file_3)
+    lut = parse_clb_luts_usage(target_file_3)
+    
     # file3=post_route_util_file.readlines()
     # if n == 0:
     #     post_route_util_file.write("{}{}".format(line1, line2))
     #     n=n+1
     #post_route_util_file.write("{}{}:\n{},\n{},\n{}\n".format(line3, target, CLB_line.replace(f'\n', ''), LUT_Logic_line.replace(f'\n', ''), LUT_Memory_line.replace(f'\n', '')))
+    print("lut: ", lut)
     add_to_perf_measure(clock_period, Slack_data, dynamic_pwr_data, lut, project_path, dest_csv_file)
     # post_route_power_file.close()
     # post_route_timing_summary_file.close()
@@ -227,5 +258,5 @@ def extract_perf(clock_period, project_path, dest_csv_file):
 
     return 0
 
-f = open("perf_measure.csv", "w+")
-extract_perf(10.0, "./raw/pragma_file/atax_io1_l1n1n1_l3n1n1/coloring_189_bambu_run/", f)
+# f = open("perf_measure.csv", "w+")
+# extract_perf(10.0, "./raw/pragma_file/atax_io1_l1n1n1_l3n1n1/coloring_189_bambu_run/", f)
