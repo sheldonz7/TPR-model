@@ -154,8 +154,8 @@ def generate_dataframe(CDFG, ppa, df_path):
 
     edge_index = torch.LongTensor(edges).t().contiguous()
     data['edge_index'] = edge_index.view(3, -1)
-    data['kernel_name'] = kernel_name
-    data['prj_name'] = prj_name
+    # data['kernel_name'] = kernel_name
+    # data['prj_name'] = prj_name
     dataframe = torch_geometric.data.Data.from_dict(data)
     dataframe.num_nodes = CDFG.number_of_nodes()
     torch.save(dataframe, df_path)
