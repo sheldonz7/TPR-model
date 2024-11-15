@@ -23,8 +23,8 @@ def gen_cdfg_dataframe(data_path):
 
 
     pyg_CDFG = dataset_generation.generate_dot(CDFG, optype_enc, opcode_enc, "{}/cdfg_pyg.dot".format(data_path))
-    ppa = dataset_generation.get_ppa('{}/perf_measure.csv'.format(data_path))
-    dataset_generation.generate_dataframe(pyg_CDFG, ppa, "{}/cdfg.pt".format(data_path))
+    #ppa = dataset_generation.get_ppa('{}/perf_measure.csv'.format(data_path))
+    dataset_generation.generate_dataframe(pyg_CDFG, "{}/cdfg.pt".format(data_path), False, None)
 
     # dataframe = torch.load('{}/pyg_pt/{}/{}_{}.pt'.format(dataset_path, kernel_name, design_point_name, prj_name))
     # dataframe_list_all[kernel_name].append(dataframe)

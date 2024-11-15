@@ -115,7 +115,7 @@ def generate_dot(CDFG, optype_enc, opcode_enc, dot_store_path):
 
 
 
-def generate_dataframe(CDFG, ppa, df_path):
+def generate_dataframe(CDFG, df_path, if_dataset, ppa):
     print("generating dataframe...")
     data = {}
 
@@ -140,7 +140,8 @@ def generate_dataframe(CDFG, ppa, df_path):
     #     overall_attr.sf_dsp, overall_attr.sf_bram, overall_attr.sf_latency]
     
     # ppa is a 3-dimensional list
-    data['y'] = ppa
+    if if_dataset:
+        data['y'] = ppa
 
     for key, item in data.items():
         try:
