@@ -14,7 +14,7 @@ import shutil
 
 
 graph_path = "./raw/graphs"
-dataset_path = "./dataset"
+dataset_path = "./dataset_1"
 
 numeric_item = ['bitwidth', 'lut', 'fan_in', 'fan_out']
 categ_item = ['opcode', 'optype']
