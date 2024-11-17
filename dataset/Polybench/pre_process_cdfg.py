@@ -10,9 +10,13 @@ import networkx as nx
 import graphviz as gvz
 import pandas as pd
 import csv
+import pygraphviz as pgv
+import pydot
 
 from sklearn.preprocessing import OneHotEncoder
 import extract_vivado_info as vivado_info
+import helper_functions as helper
+from multiprocessing import Lock, Process
 
 dataset_path = "./raw"
 
@@ -83,7 +87,8 @@ def set_graph_node_info(DG, nodeid, **kwargs):
     for attr_name in kwargs:
         graph_node[attr_name] = kwargs[attr_name]
 
-def cdfg_attribute_filter(CDFG_raw, CDFG, CG, coloring_file):
+def cdfg_attribute_filter(CDFG_raw, coloring_file):
+    CDFG_filtered = nx.MultiDiGraph()
     node_attr_to_keep = ["node_id", "bitwidth", "resource_area"]
     edge_attr_to_keep = ['edge_type']  # should be "type"
 
@@ -97,8 +102,8 @@ def cdfg_attribute_filter(CDFG_raw, CDFG, CG, coloring_file):
         optype = opcode_get_type(opcode)
         bitwidth = data.get("bitwidth", None)
         lut = data.get("resource_area", None)
-        CDFG.add_node(node, node_id=data.get("node_id", None), opcode=opcode,optype=optype,bitwidth=bitwidth,lut=lut)
-        CG.add_node(node, node_id=data.get("node_id", None), opcode=opcode,optype=optype,bitwidth=bitwidth,lut=lut)
+        CDFG_filtered.add_node(node, node_id=data.get("node_id", None), opcode=opcode,optype=optype,bitwidth=bitwidth,lut=lut)
+        #CG.add_node(node, node_id=data.get("node_id", None), opcode=opcode,optype=optype,bitwidth=bitwidth,lut=lut)
 
     # Add filtered edge attributes to the new graph
     coloring_solution = pd.read_csv(coloring_file)
@@ -126,11 +131,11 @@ def cdfg_attribute_filter(CDFG_raw, CDFG, CG, coloring_file):
                 #print("compatibility not detected, not adding the edge")
                 continue
         #print("add edge of type {} between {} and {}".format(edge_type, u, v))
-        CDFG.add_edge(u,v, edge_type=edge_type)
+        CDFG_filtered.add_edge(u,v, edge_type=edge_type)
 
     # Approach 2: merge nodes of the same color to one node, then there is also no need for binding/clustering edges
     # need to modify codes above
-
+    return CDFG_filtered
 
 
 
@@ -195,25 +200,25 @@ def graph_edge_feat_to_file(out_dir, CDFG):
                 wr_line += [c_val]
             writer.writerow(wr_line)
 
-def feature_embed(cdfg_dir):
+def feature_embed(CDFG_filtered):
     #CDFG = nx.DiGraph(nx.drawing.nx_agraph.read_dot(cdfg_file))
     # CDFG_raw = nx.DiGraph(nx.drawing.nx_pydot.read_dot(cdfg_file))
     # CDFG = CDFG_raw.copy()
     # print("CDFG copy: ", CDFG)
-    CDFG = CDFG_raw = nx.MultiDiGraph(nx.drawing.nx_pydot.read_dot("{}/cdfg_filtered.dot".format(cdfg_dir)))
+    #CDFG = nx.MultiDiGraph(nx.drawing.nx_pydot.read_dot("{}/cdfg_filtered.dot".format(cdfg_dir)))
 
-    fan_in_out_compute(CDFG)
-    check_start_of_path(CDFG)
+    fan_in_out_compute(CDFG_filtered)
+    check_start_of_path(CDFG_filtered)
 
     
     #print("CDFG after fan in out compute: ")
     #print_graph(CDFG)
     
-    graph_node_feat_to_file(cdfg_dir, CDFG)
-    graph_edge_feat_to_file(cdfg_dir, CDFG)
+    # graph_node_feat_to_file(cdfg_dir, CDFG)
+    # graph_edge_feat_to_file(cdfg_dir, CDFG)
 
-    nx.nx_pydot.write_dot(CDFG, "{}/cdfg_0.dot".format(cdfg_dir))
-
+    #nx.nx_pydot.write_dot(CDFG, "{}/cdfg_0.dot".format(cdfg_dir))
+    return CDFG_filtered
 
 
     # # Print all nodes and their attributes
@@ -252,14 +257,10 @@ def print_graph(graph):
 
 
 
-def df_graph_construct(cdfg_dir):
-    CDFG_raw = nx.MultiDiGraph(nx.drawing.nx_pydot.read_dot("{}/cdfg_raw.dot".format(cdfg_dir)))
-    CDFG = nx.MultiDiGraph()
-    CG = nx.MultiDiGraph()
-    #print("CDFG")
-    #print_graph(CDFG_raw)
+def df_graph_construct(CDFG_raw, coloring_file_path):
+    #CDFG_raw = nx.MultiDiGraph(nx.drawing.nx_pydot.read_dot("{}/cdfg_raw.dot".format(cdfg_dir)))
     
-    cdfg_attribute_filter(CDFG_raw, CDFG, CG, "{}/coloring.csv".format(cdfg_dir))
+    cdfg_filtered = cdfg_attribute_filter(CDFG_raw, coloring_file_path)
     #print("CDFG after attribute filtering")
     #print_graph(CDFG)
     # cdfg_compatibility_filter(CDFG, coloring_file)
@@ -273,8 +274,8 @@ def df_graph_construct(cdfg_dir):
 
     #CDFG = nx.convert_node_labels_to_integers(CDFG)
 
-    nx.nx_pydot.write_dot(CDFG, "{}/cdfg_filtered.dot".format(cdfg_dir))
-
+    #nx.nx_pydot.write_dot(CDFG, "{}/cdfg_filtered.dot".format(cdfg_dir))
+    return cdfg_filtered
 
 
 
@@ -315,13 +316,29 @@ def extract_cdfg():
         vivado_info.extract_perf(10, bambu_run_path, f)
         f.close()
         shutil.copy("{}/perf_measure.csv".format(bambu_run_path), "{}/{}/{}/perf_measure.csv".format(graph_path, design_point_name, coloring_solution_name))
+
+
+def pre_process_proc(design_point_name, coloring_solution_name):
+    full_path = "{}/{}/{}".format(graph_path, design_point_name, coloring_solution_name)
+    if not os.path.exists("{}/cdfg_raw.dot".format(full_path)) or not os.path.exists("{}/coloring.csv".format(full_path)) or not os.path.exists("{}/perf_measure.csv".format(full_path)):
+        print("design point {} coloring solution {} is broken".format(design_point_name, coloring_solution_name))
+        return
+    print("pre processing design point {} {}".format(design_point_name, coloring_solution_name))
+
+    try:
+        df_graph_construct("{}/{}/{}".format(graph_path, design_point_name, coloring_solution_name))
+        feature_embed("{}/{}/{}".format(graph_path, design_point_name, coloring_solution_name))
+    except:
+        print("fail to pre process data")
+
+
 if __name__ == "__main__":
 
     # read vivado_run_status_file
-    vivado_run_status = pd.read_csv(vivado_run_status_file)
-    first_column = vivado_run_status.iloc[:, 0]
-    second_column = vivado_run_status.iloc[:, 1]
-    sixth_column = vivado_run_status.iloc[:, 5]
+    # vivado_run_status = pd.read_csv(vivado_run_status_file)
+    # first_column = vivado_run_status.iloc[:, 0]
+    # second_column = vivado_run_status.iloc[:, 1]
+    # sixth_column = vivado_run_status.iloc[:, 5]
     
 
 
@@ -344,16 +361,27 @@ if __name__ == "__main__":
     # run_routine()
     # extract_cdfg()
 
-    for design_point_name, coloring_solution_name, vivado_run_success in zip(first_column, second_column, sixth_column):
+    #for design_point_name, coloring_solution_name, vivado_run_success in zip(first_column, second_column, sixth_column):
         # if not vivado_run_success:
         #     continue
         
         # extract vivado info + copy files into graph path
+    for design_point_name in os.listdir(graph_path):
+        coloring_solution_name_list = os.listdir("{}/{}".format(graph_path, design_point_name))
+        coloring_solution_groups = list(helper.divide_list_into_groups(coloring_solution_name_list, 64))
 
-        print("pre processing design point {} {}".format(design_point_name, coloring_solution_name))
+        for coloring_solution_group in coloring_solution_groups:
+            procs = []
+            for coloring_solution_name in coloring_solution_group:
+                p = Process(target=pre_process_proc, args=(design_point_name, coloring_solution_name))
+                procs.append(p)
+                p.start()
+            
+            for p in procs:
+                p.join()
+                
+            
 
-        df_graph_construct("{}/{}/{}".format(graph_path, design_point_name, coloring_solution_name))
-        feature_embed("{}/{}/{}".format(graph_path, design_point_name, coloring_solution_name))
-
+            
    # df_graph_construct("{}/{}/{}".format(graph_path, "atax_io1_l1n1n1_l3n1n1", "coloring_60"))
     #feature_embed("{}/{}/{}".format(graph_path, "atax_io1_l1n1n1_l3n1n1", "coloring_60"))
