@@ -179,7 +179,7 @@ def parse_clb_luts_usage(report_path):
 
 
 #####################################################################
-def add_to_perf_measure(clock_period, Slack_data, dynamic_pwr, lut, prj_path, dest_csv_file):
+def add_to_perf_measure(clock_period, Slack_data, dynamic_pwr, lut, prj_path):
     # if 'sample' in os.listdir('./{}/hls/'.format(target)):
     #     pass
     # else:
@@ -189,12 +189,11 @@ def add_to_perf_measure(clock_period, Slack_data, dynamic_pwr, lut, prj_path, de
     l = perf_measure.readlines()
  
     perf_measure.write("cp_latency,dynamic_pwr,lut\n{},{},{}\n".format(cp_latency, dynamic_pwr, lut))
-    dest_csv_file.write("{},{},{}".format(format(cp_latency, '.3f'), dynamic_pwr, lut))
     #perf_measure.write("{},{},{}\n".format(cp_latency, dynamic_pwr, lut))
 
 #####################################################################
 
-def extract_perf(clock_period, project_path, dest_csv_file):
+def extract_perf(clock_period, vivado_project_path, perf_path):
 
 
     print("extracting vivado information beginning")
@@ -214,18 +213,18 @@ def extract_perf(clock_period, project_path, dest_csv_file):
         #    targets.append(i)
     # targets=['atax', 'bicg', 'gemm', 'gesummv', 'k2mm', 'k3mm', 'mvt', 'syr2k', 'syrk']
 
-    target_file_1="{}/post_route_power.rpt".format(project_path)
+    target_file_1="{}/post_route_power.rpt".format(vivado_project_path)
     if os.path.exists(target_file_1) == False:
-        print("post_route_power.rpt does not exist")
-        return 1
+        print("{} does not exist".format(target_file_1))
+        return 1, None, None, None
     target_line, dynamic_pwr_data = extract_post_route_power(target_file_1)
     #target data is saved in target_data variable
     #post_route_power_file.write("{}{}\n".format(target, target_line.replace(f'\n', '')))
 
-    target_file_2="{}/post_route_timing_summary.rpt".format(project_path)
+    target_file_2="{}/post_route_timing_summary.rpt".format(vivado_project_path)
     if os.path.exists(target_file_2) == False:
-        print("post_route_timing_summary.rpt does not exist")
-        return 1
+        print("{} does not exist", target_file_2)
+        return 1, None, None, None
 
     target_line, target_data, Slack_MET_line, Slack_data = extract_post_route_timing_summary(target_file_2)
     print("get slack data: ", float(Slack_data))
@@ -235,10 +234,10 @@ def extract_perf(clock_period, project_path, dest_csv_file):
     #data path delay is saved in target_data
     #post_route_timing_summary_file.write("{}:\n{}{}".format(target, Slack_MET_line, target_line))
 
-    target_file_3="{}/post_route_util.rpt".format(project_path)
+    target_file_3="{}/post_route_util.rpt".format(vivado_project_path)
     if os.path.exists(target_file_3) == False:
-        print("post_route_util.rpt does not exist")
-        return 1
+        print("{} does not exist", target_file_3)
+        return 1, None, None, None
     
     #CLB_line, LUT_Logic_line, LUT_Memory_line, line1, line2, line3, lut = extract_post_route_util(target_file_3)
     lut = parse_clb_luts_usage(target_file_3)
@@ -249,14 +248,24 @@ def extract_perf(clock_period, project_path, dest_csv_file):
     #     n=n+1
     #post_route_util_file.write("{}{}:\n{},\n{},\n{}\n".format(line3, target, CLB_line.replace(f'\n', ''), LUT_Logic_line.replace(f'\n', ''), LUT_Memory_line.replace(f'\n', '')))
     print("lut: ", lut)
-    add_to_perf_measure(clock_period, Slack_data, dynamic_pwr_data, lut, project_path, dest_csv_file)
+    
+    cp_latency=float(clock_period) - float(Slack_data)
+
+    # generate perf_measure.csv
+    perf_measure = open('{}/perf_measure.csv'.format(perf_path), 'w+')
+    l = perf_measure.readlines()
+    perf_measure.write("cp_latency,dynamic_pwr,lut\n{},{},{}\n".format(cp_latency, dynamic_pwr_data, lut))
+    
+    #add_to_perf_measure(clock_period, Slack_data, dynamic_pwr_data, lut, perf_path, dest_csv_file)
+    
+    
     # post_route_power_file.close()
     # post_route_timing_summary_file.close()
     # post_route_util_file.close()
     print("extracting vivado information ends")
 
 
-    return 0
+    return 0, cp_latency, dynamic_pwr_data, lut
 
 # f = open("perf_measure.csv", "w+")
 # extract_perf(10.0, "./raw/pragma_file/atax_io1_l1n1n1_l3n1n1/coloring_189_bambu_run/", f)
